@@ -23,7 +23,7 @@ class FeedsView(APIView):
     def post(self, request):
         feed_url = request.data.get('feed')
         
-        if not feed_url:
+        if not feed_url or not feed_url.strip():
             return Response({
                 "type": "Error",
                 "errors": ["Feed URL is required"],
