@@ -1,0 +1,52 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: org-social-relay-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  web:
+    build: .
+    container_name: org-social-relay-web
+    ports:
+      - "8000:8000"
+    environment:
+      - DJANGO_SETTINGS_MODULE=core.settings
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: >
+      sh -c ".venv/bin/python manage.py migrate &&
+             .venv/bin/python manage.py runserver 0.0.0.0:8000"
+    healthcheck:
+      test: ["CMD", ".venv/bin/python", "manage.py", "check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  huey:
+    build: .
+    container_name: org-social-relay-huey
+    environment:
+      - DJANGO_SETTINGS_MODULE=core.settings
+    depends_on:
+      redis:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: .venv/bin/python manage.py run_huey
+    restart: unless-stopped
+
+volumes:
+  redis_data:
