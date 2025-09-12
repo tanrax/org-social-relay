@@ -70,12 +70,10 @@ curl http://localhost:8080/feeds
 {
     "type": "Success",
     "errors": [],
-    "data": {
-        "feeds": [
-            "https://example.com/social.org",
-            "https://another-example.com/social.org"
-        ]
-    }
+    "data": [
+        "https://example.com/social.org",
+        "https://another-example.com/social.org"
+    ]
 }
 ```
 
