@@ -12,9 +12,11 @@ def discover_feeds_from_relay_nodes():
 
     This task:
     1. Fetches the list of relay nodes from the public URL
-    2. Calls each relay node's /feeds endpoint to get their registered feeds
-    3. Stores newly discovered feeds in our local database
+    2. Filters out our own domain to avoid self-discovery
+    3. Calls each relay node's /feeds endpoint to get their registered feeds
+    4. Stores newly discovered feeds in our local database
     """
+    from django.conf import settings
     from .models import Feed
 
     relay_list_url = (
@@ -31,11 +33,26 @@ def discover_feeds_from_relay_nodes():
             line.strip() for line in response.text.split("\n") if line.strip()
         ]
 
+        # Filter out our own domain to avoid self-discovery
+        site_domain = settings.SITE_DOMAIN
+        filtered_nodes = []
+        for node_url in relay_nodes:
+            # Normalize the URL for comparison
+            normalized_node = node_url.replace("http://", "").replace("https://", "").strip("/")
+            normalized_site = site_domain.strip("/")
+
+            if normalized_node != normalized_site:
+                filtered_nodes.append(node_url)
+            else:
+                logger.info(f"Skipping own domain: {node_url}")
+
+        relay_nodes = filtered_nodes
+
         if not relay_nodes:
-            logger.info("No relay nodes found in the list")
+            logger.info("No relay nodes found in the list after filtering own domain")
             return
 
-        logger.info(f"Found {len(relay_nodes)} relay nodes to check")
+        logger.info(f"Found {len(relay_nodes)} relay nodes to check (excluding own domain)")
 
         total_discovered = 0
 
