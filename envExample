@@ -1,0 +1,27 @@
+# Django Settings
+DJANGO_SETTINGS_MODULE=core.settings
+DEBUG=true
+SECRET_KEY=django-insecure-y315h5v5t^1c^rqqcpk1y&!7+f8%8rj3$3bh2k!xoco8x@a+kr
+ALLOWED_HOSTS=localhost,127.0.0.1,django,nginx
+SITE_DOMAIN=localhost:8080
+
+# Redis Configuration
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_DB=0
+
+# Huey Configuration
+HUEY_WORKERS=1
+
+# Database Configuration (if using PostgreSQL instead of SQLite)
+# DB_NAME=org_social_relay
+# DB_USER=postgres
+# DB_PASSWORD=password
+# DB_HOST=postgres
+# DB_PORT=5432
+
+# Production Settings (uncomment for production)
+# DEBUG=false
+# SECRET_KEY=your-super-secret-production-key-here
+# ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
+# SITE_DOMAIN=yourdomain.com

@@ -32,6 +32,9 @@ ALLOWED_HOSTS = os.environ.get(
     "ALLOWED_HOSTS", "localhost,127.0.0.1,django,nginx"
 ).split(",")
 
+# Site domain configuration
+SITE_DOMAIN = os.environ.get("SITE_DOMAIN", "localhost:8080")
+
 
 # Application definition
 
