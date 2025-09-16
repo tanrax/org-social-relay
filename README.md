@@ -18,15 +18,19 @@ Org Social Relay is a P2P system that acts as an intermediary between all [Org S
 
 You need to have Docker and Docker Compose installed.
 
-### 1. Create a `.env` file based on `env.example`
+### 1. Create a `.env` file based on `envExample`
 
 ```bash
-cp env.example .env
+cp envExample .env
 ```
 
-And edit it to your needs.
+### 2. Edit variables as needed
 
-### 2. Run with Docker Compose
+```bash
+nano .env
+```
+
+### 3. Run with Docker Compose
 
 ```bash
 docker compose up -d

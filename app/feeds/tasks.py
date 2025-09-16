@@ -1,88 +1,86 @@
-from huey.contrib.djhuey import periodic_task, task, cron
-from django.utils import timezone
-from datetime import timedelta
+from huey.contrib.djhuey import periodic_task, cron
 import logging
 import requests
 
 logger = logging.getLogger(__name__)
 
 
-@task()
-def fetch_org_social_feed(profile_url):
+@periodic_task(cron(hour="*/1"))  # Run every hour
+def discover_feeds_from_relay_nodes():
     """
-    Task to fetch and parse an Org Social feed from a URL
+    Periodic task to discover new feeds from other Org Social Relay nodes.
+
+    This task:
+    1. Fetches the list of relay nodes from the public URL
+    2. Calls each relay node's /feeds endpoint to get their registered feeds
+    3. Stores newly discovered feeds in our local database
     """
+    from .models import Feed
+
+    relay_list_url = (
+        "https://cdn.jsdelivr.net/gh/tanrax/org-social/org-social-relay-list.txt"
+    )
+
     try:
-        response = requests.get(profile_url, timeout=30)
+        # Fetch the list of relay nodes
+        response = requests.get(relay_list_url, timeout=10)
         response.raise_for_status()
-        content = response.text
-        
-        # Here you would implement the Org Social parsing logic
-        logger.info(f"Successfully fetched feed from {profile_url}")
-        return content
-        
+
+        # The file might be empty or contain one URL per line
+        relay_nodes = [
+            line.strip() for line in response.text.split("\n") if line.strip()
+        ]
+
+        if not relay_nodes:
+            logger.info("No relay nodes found in the list")
+            return
+
+        logger.info(f"Found {len(relay_nodes)} relay nodes to check")
+
+        total_discovered = 0
+
+        for node_url in relay_nodes:
+            try:
+                # Ensure the URL has proper format
+                if not node_url.startswith(("http://", "https://")):
+                    node_url = f"http://{node_url}"
+
+                # Call the /feeds endpoint on each relay node
+                feeds_url = f"{node_url}/feeds"
+                feeds_response = requests.get(feeds_url, timeout=15)
+                feeds_response.raise_for_status()
+
+                feeds_data = feeds_response.json()
+
+                # Check if response has expected format
+                if feeds_data.get("type") == "Success" and "data" in feeds_data:
+                    feeds_list = feeds_data["data"]
+
+                    for feed_url in feeds_list:
+                        if isinstance(feed_url, str) and feed_url.strip():
+                            # Check if we already have this feed
+                            feed_obj, created = Feed.objects.get_or_create(
+                                url=feed_url.strip()
+                            )
+
+                            if created:
+                                total_discovered += 1
+                                logger.info(f"Discovered new feed: {feed_url}")
+
+                logger.info(f"Successfully checked relay node: {node_url}")
+
+            except requests.RequestException as e:
+                logger.warning(f"Failed to fetch feeds from relay node {node_url}: {e}")
+            except ValueError as e:
+                logger.warning(f"Invalid JSON response from relay node {node_url}: {e}")
+            except Exception as e:
+                logger.error(f"Unexpected error checking relay node {node_url}: {e}")
+
+        logger.info(
+            f"Feed discovery completed. Total new feeds discovered: {total_discovered}"
+        )
+
     except requests.RequestException as e:
-        logger.error(f"Failed to fetch feed from {profile_url}: {e}")
-        return None
-
-
-@periodic_task(cron(minute='*/15'))  # Run every 15 minutes
-def sync_all_feeds():
-    """
-    Periodic task to sync all followed feeds
-    """
-    from .models import Profile
-    
-    profiles = Profile.objects.all()
-    logger.info(f"Starting sync for {profiles.count()} profiles")
-    
-    for profile in profiles:
-        # Queue a task to fetch each profile's feed
-        fetch_org_social_feed(profile.url)
-    
-    logger.info("Finished queuing feed sync tasks")
-
-
-@periodic_task(cron(minute='0', hour='0'))  # Run daily at midnight
-def cleanup_old_posts():
-    """
-    Periodic task to clean up old posts (older than 30 days)
-    """
-    from .models import Post
-    
-    cutoff_date = timezone.now() - timedelta(days=30)
-    old_posts_count = Post.objects.filter(created_at__lt=cutoff_date).count()
-    
-    if old_posts_count > 0:
-        deleted_count = Post.objects.filter(created_at__lt=cutoff_date).delete()[0]
-        logger.info(f"Cleaned up {deleted_count} old posts")
-    else:
-        logger.info("No old posts to clean up")
-
-
-@task()
-def process_mentions_in_post(post_id):
-    """
-    Task to extract and process mentions from a post
-    """
-    from .models import Post
-    from app.notifications.models import Mention
-    import re
-    
-    try:
-        post = Post.objects.get(id=post_id)
-        
-        # Extract mentions using regex for org-social links
-        mention_pattern = r'\[\[org-social:([^\]]+)\]\[([^\]]+)\]\]'
-        mentions = re.findall(mention_pattern, post.content)
-        
-        for profile_url, nickname in mentions:
-            # Here you would look up the profile and create mention records
-            logger.info(f"Found mention of {nickname} ({profile_url}) in post {post_id}")
-            
-        logger.info(f"Processed mentions for post {post_id}")
-        
-    except Post.DoesNotExist:
-        logger.error(f"Post {post_id} not found")
+        logger.error(f"Failed to fetch relay nodes list from {relay_list_url}: {e}")
     except Exception as e:
-        logger.error(f"Error processing mentions for post {post_id}: {e}")
+        logger.error(f"Unexpected error in discover_feeds_from_relay_nodes: {e}")

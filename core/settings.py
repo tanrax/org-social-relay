@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -20,12 +21,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-y315h5v5t^1c^rqqcpk1y&!7+f8%8rj3$3bh2k!xoco8x@a+kr"
+SECRET_KEY = os.environ.get(
+    "SECRET_KEY", "django-insecure-y315h5v5t^1c^rqqcpk1y&!7+f8%8rj3$3bh2k!xoco8x@a+kr"
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get("DEBUG", "False").lower() == "true"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.environ.get(
+    "ALLOWED_HOSTS", "localhost,127.0.0.1,django,nginx"
+).split(",")
 
 
 # Application definition
@@ -33,12 +38,12 @@ ALLOWED_HOSTS = []
 INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "rest_framework",
-    "django_filters", 
+    "django_filters",
     "huey.contrib.djhuey",
     "app.public",
     "app.feeds",
-    "app.notifications",
-    "app.groups",
+    # "app.notifications",
+    # "app.groups",
 ]
 
 MIDDLEWARE = [
@@ -89,36 +94,34 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Django REST Framework settings
 REST_FRAMEWORK = {
-    'DEFAULT_RENDERER_CLASSES': [
-        'rest_framework.renderers.JSONRenderer',
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
     ],
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 20,
-    'DEFAULT_FILTER_BACKENDS': [
-        'rest_framework.filters.SearchFilter',
-        'rest_framework.filters.OrderingFilter',
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 20,
+    "DEFAULT_FILTER_BACKENDS": [
+        "rest_framework.filters.SearchFilter",
+        "rest_framework.filters.OrderingFilter",
     ],
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.AllowAny",
     ],
-    'DEFAULT_AUTHENTICATION_CLASSES': [],
-    'UNAUTHENTICATED_USER': None,
-    'UNAUTHENTICATED_TOKEN': None,
+    "DEFAULT_AUTHENTICATION_CLASSES": [],
+    "UNAUTHENTICATED_USER": None,
+    "UNAUTHENTICATED_TOKEN": None,
 }
 
 # Huey configuration for task queue and cron jobs
-import os
-
 HUEY = {
-    'huey_class': 'huey.RedisHuey',
-    'name': 'org-social-relay',
-    'connection': {
-        'host': os.environ.get('REDIS_HOST', 'redis'),
-        'port': int(os.environ.get('REDIS_PORT', 6379)),
-        'db': int(os.environ.get('REDIS_DB', 0)),
+    "huey_class": "huey.RedisHuey",
+    "name": "org-social-relay",
+    "connection": {
+        "host": os.environ.get("REDIS_HOST", "redis"),
+        "port": int(os.environ.get("REDIS_PORT", 6379)),
+        "db": int(os.environ.get("REDIS_DB", 0)),
     },
-    'consumer': {
-        'workers': int(os.environ.get('HUEY_WORKERS', 1)),
-        'worker_type': 'thread',
+    "consumer": {
+        "workers": int(os.environ.get("HUEY_WORKERS", 1)),
+        "worker_type": "thread",
     },
 }

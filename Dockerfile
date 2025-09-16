@@ -30,4 +30,4 @@ COPY . .
 EXPOSE 8000
 
 # Default command (can be overridden in docker-compose)
-CMD [".venv/bin/python", "manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
