@@ -38,7 +38,9 @@ def discover_feeds_from_relay_nodes():
         filtered_nodes = []
         for node_url in relay_nodes:
             # Normalize the URL for comparison
-            normalized_node = node_url.replace("http://", "").replace("https://", "").strip("/")
+            normalized_node = (
+                node_url.replace("http://", "").replace("https://", "").strip("/")
+            )
             normalized_site = site_domain.strip("/")
 
             if normalized_node != normalized_site:
@@ -52,7 +54,9 @@ def discover_feeds_from_relay_nodes():
             logger.info("No relay nodes found in the list after filtering own domain")
             return
 
-        logger.info(f"Found {len(relay_nodes)} relay nodes to check (excluding own domain)")
+        logger.info(
+            f"Found {len(relay_nodes)} relay nodes to check (excluding own domain)"
+        )
 
         total_discovered = 0
 
