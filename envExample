@@ -13,6 +13,9 @@ REDIS_DB=0
 # Huey Configuration
 HUEY_WORKERS=1
 
+# Nginx Configuration
+NGINX_PORT=8080
+
 # Database Configuration (if using PostgreSQL instead of SQLite)
 # DB_NAME=org_social_relay
 # DB_USER=postgres
