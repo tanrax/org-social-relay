@@ -14,14 +14,11 @@ RUN apt-get update \
         libc6-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install UV (Python package manager)
-RUN pip install uv
-
-# Copy dependency files
-COPY pyproject.toml uv.lock ./
+# Copy requirements file
+COPY requirements.txt ./
 
 # Install Python dependencies
-RUN uv sync --frozen
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy project files
 COPY . .
