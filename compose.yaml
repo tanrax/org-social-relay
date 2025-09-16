@@ -42,7 +42,7 @@ services:
         condition: service_healthy
     volumes:
       - .:/app
-    command: python manage.py run_huey
+    command: sh -c "uv sync --no-dev && uv run python manage.py run_huey"
     restart: unless-stopped
 
   nginx:
