@@ -17,18 +17,9 @@ Including another URLconf
 
 from django.urls import path
 from app.public.views import root_view
-from app.feeds.views import (
-    FeedsView, MentionsView, RepliesView, 
-    SearchView, GroupsView, GroupMembersView, GroupMessagesView
-)
+from app.feeds.views import FeedsView
 
 urlpatterns = [
-    path('', root_view, name='root'),
-    path('feeds', FeedsView.as_view(), name='feeds'),
-    path('mentions/', MentionsView.as_view(), name='mentions'),
-    path('replies/', RepliesView.as_view(), name='replies'),
-    path('search', SearchView.as_view(), name='search'),
-    path('groups', GroupsView.as_view(), name='groups'),
-    path('groups/<int:group_id>/members', GroupMembersView.as_view(), name='group_members'),
-    path('groups/<int:group_id>/messages', GroupMessagesView.as_view(), name='group_messages'),
+    path("", root_view, name="root"),
+    path("feeds/", FeedsView.as_view(), name="feeds"),
 ]
