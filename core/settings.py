@@ -43,8 +43,8 @@ INSTALLED_APPS = [
     "rest_framework",
     "django_filters",
     "huey.contrib.djhuey",
-    "app.public",
-    "app.feeds",
+    "app.public.apps.PublicConfig",
+    "app.feeds.apps.FeedsConfig",
     # "app.notifications",
     # "app.groups",
 ]
