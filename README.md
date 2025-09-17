@@ -14,6 +14,20 @@ Org Social Relay is a P2P system that acts as an intermediary between all [Org S
 - Perform searches (tags and full text).
 - Participate in groups.
 
+## API Status
+
+| Endpoint | Status |
+|----------|---------|
+| `/` | ✅ |
+| `/feeds/` (GET) | ✅ |
+| `/feeds/` (POST) | ✅ |
+| `/mentions/` | ❌ |
+| `/replies/` | ❌ |
+| `/search` | ❌ |
+| `/groups/` | ❌ |
+| `/groups/{id}/members/` | ❌ |
+| `/groups/{id}/messages/` | ❌ |
+
 ## Installation
 
 You need to have Docker and Docker Compose installed.
