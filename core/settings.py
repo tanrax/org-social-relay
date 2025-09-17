@@ -115,7 +115,22 @@ REST_FRAMEWORK = {
 }
 
 # Cache configuration
-if DEBUG:
+import socket
+
+def redis_available():
+    """Check if Redis is available"""
+    try:
+        redis_host = os.environ.get('REDIS_HOST', 'redis')
+        redis_port = int(os.environ.get('REDIS_PORT', 6379))
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(1)
+        result = sock.connect_ex((redis_host, redis_port))
+        sock.close()
+        return result == 0
+    except:
+        return False
+
+if DEBUG or not redis_available():
     CACHES = {
         "default": {
             "BACKEND": "django.core.cache.backends.dummy.DummyCache",
@@ -126,9 +141,6 @@ else:
         "default": {
             "BACKEND": "django.core.cache.backends.redis.RedisCache",
             "LOCATION": f"redis://{os.environ.get('REDIS_HOST', 'redis')}:{os.environ.get('REDIS_PORT', 6379)}/{os.environ.get('REDIS_CACHE_DB', 1)}",
-            "OPTIONS": {
-                "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            },
         }
     }
 

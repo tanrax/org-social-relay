@@ -36,6 +36,14 @@ nano .env
 docker compose up -d
 ```
 
+## Make your Org Social Relay public
+
+If you want your Relay to be used by other users, and also communicate with other public Relays to work together scanning the network and improving everyone's speed, you must make a Pull Request to this file:
+
+https://github.com/tanrax/org-social/blob/main/org-social-relay-list.txt
+
+Add your Relay URL (e.g. `https://my-relay.example.com`) in a new line.
+
 ## Endpoints for clients
 
 ### Root
