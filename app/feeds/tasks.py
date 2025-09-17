@@ -1,11 +1,11 @@
-from huey.contrib.djhuey import periodic_task, cron
+from huey.contrib.djhuey import periodic_task, crontab
 import logging
 import requests
 
 logger = logging.getLogger(__name__)
 
 
-@periodic_task(cron(hour="*/1"))  # Run every hour
+@periodic_task(crontab(hour="*"))  # Run every hour
 def discover_feeds_from_relay_nodes():
     """
     Periodic task to discover new feeds from other Org Social Relay nodes.
