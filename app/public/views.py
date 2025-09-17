@@ -7,8 +7,8 @@ def root_view(request):
         {
             "_links": [
                 {"rel": "self", "href": "/", "method": "GET"},
-                {"rel": "list-feeds", "href": "/feeds", "method": "GET"},
-                {"rel": "add-feed", "href": "/feeds", "method": "POST"},
+                {"rel": "list-feeds", "href": "/feeds/", "method": "GET"},
+                {"rel": "add-feed", "href": "/feeds/", "method": "POST"},
                 {
                     "rel": "get-mentions",
                     "href": "/mentions/?feed={url feed}",
@@ -19,16 +19,16 @@ def root_view(request):
                     "href": "/replies/?post={url post}",
                     "method": "GET",
                 },
-                {"rel": "search", "href": "/search?q={query}", "method": "GET"},
-                {"rel": "list-groups", "href": "/groups", "method": "GET"},
+                {"rel": "search", "href": "/search/?q={query}", "method": "GET"},
+                {"rel": "list-groups", "href": "/groups/", "method": "GET"},
                 {
                     "rel": "get-group-messages",
-                    "href": "/groups/{group id}/messages",
+                    "href": "/groups/{group id}/messages/",
                     "method": "GET",
                 },
                 {
                     "rel": "register-group-member",
-                    "href": "/groups/{group id}/members?feed={url feed}",
+                    "href": "/groups/{group id}/members/?feed={url feed}",
                     "method": "POST",
                 },
             ]

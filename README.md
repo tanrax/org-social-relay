@@ -50,24 +50,24 @@ curl http://localhost:8080/
 {
     "_links": [
         {"rel": "self", "href": "/", "method": "GET"},
-        {"rel": "list-feeds", "href": "/feeds", "method": "GET"},
-        {"rel": "add-feed", "href": "/feeds", "method": "POST"},
+        {"rel": "list-feeds", "href": "/feeds/", "method": "GET"},
+        {"rel": "add-feed", "href": "/feeds/", "method": "POST"},
         {"rel": "get-mentions", "href": "/mentions/?feed={url feed}", "method": "GET"},
         {"rel": "get-replies", "href": "/replies/?post={url post}", "method": "GET"},
         {"rel": "search", "href": "/search?q={query}", "method": "GET"},
-        {"rel": "list-groups", "href": "/groups", "method": "GET"},
-        {"rel": "get-group-messages", "href": "/groups/{group id}/messages", "method": "GET"},
-        {"rel": "register-group-member", "href": "/groups/{group id}/members?feed={url feed}", "method": "POST"}
+        {"rel": "list-groups", "href": "/groups/", "method": "GET"},
+        {"rel": "get-group-messages", "href": "/groups/{group id}/messages/", "method": "GET"},
+        {"rel": "register-group-member", "href": "/groups/{group id}/members/?feed={url feed}", "method": "POST"}
     ]
 }
 ```
 
 ### List feeds
 
-`/feeds` - List all registered feeds.
+`/feeds/` - List all registered feeds.
 
 ```sh
-curl http://localhost:8080/feeds
+curl http://localhost:8080/feeds/
 ```
 
 ```json
@@ -83,10 +83,10 @@ curl http://localhost:8080/feeds
 
 ### Add feed
 
-`/feeds` - Add a new feed to be scanned.
+`/feeds/` - Add a new feed to be scanned.
 
 ```sh
-curl -X POST http://localhost:8080/feeds -d '{"feed": "https://example.com/path/to/your/file.org"}' -H "Content-Type: application/json"
+curl -X POST http://localhost:8080/feeds/ -d '{"feed": "https://example.com/path/to/your/file.org"}' -H "Content-Type: application/json"
 ```
 
 ```json
@@ -216,10 +216,10 @@ The `version` in the `meta` field is a unique identifier for the current state o
 
 ### List groups
 
-`/groups` - List all groups from the relay.
+`/groups/` - List all groups from the relay.
 
 ```sh
-curl http://localhost:8080/groups
+curl http://localhost:8080/groups/
 ```
 
 ```json
@@ -247,10 +247,10 @@ curl http://localhost:8080/groups
 
 ### Register as group member
 
-`/groups/{group id}/members?feed={url feed}` - Register a feed as a member of a group.
+`/groups/{group id}/members/?feed={url feed}` - Register a feed as a member of a group.
 
 ```sh
-curl -X POST "http://localhost:8080/groups/1/members?feed=https://example.com/social.org"
+curl -X POST "http://localhost:8080/groups/1/members/?feed=https://example.com/social.org"
 ```
 
 ```json
@@ -266,10 +266,10 @@ curl -X POST "http://localhost:8080/groups/1/members?feed=https://example.com/so
 
 ### Get group messages
 
-`/groups/{group id}/messages` - Get messages from a group.
+`/groups/{group id}/messages/` - Get messages from a group.
 
 ```sh
-curl http://localhost:8080/groups/1/messages
+curl http://localhost:8080/groups/1/messages/
 ```
 
 ```json
