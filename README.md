@@ -21,7 +21,7 @@ Org Social Relay is a P2P system that acts as an intermediary between all [Org S
 | `/` | ✅ |
 | `/feeds/` (GET) | ✅ |
 | `/feeds/` (POST) | ✅ |
-| `/mentions/` | ❌ |
+| `/mentions/` | ✅ |
 | `/replies/` | ❌ |
 | `/search` | ❌ |
 | `/groups/` | ❌ |

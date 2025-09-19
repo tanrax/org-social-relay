@@ -48,11 +48,12 @@ class FeedsViewTest(TestCase):
         self.assertIn("https://test.dev/social.org", feed_urls)
         self.assertIn("https://demo.net/social.org", feed_urls)
 
-    def test_post_new_feed_success(self):
-        """Test POST /feeds creates a new feed successfully."""
-        # Given: A new feed URL that doesn't exist
-        feed_url = "https://newsite.com/social.org"
-        self.assertFalse(Feed.objects.filter(url=feed_url).exists())
+    def test_post_new_valid_feed_success(self):
+        """Test POST /feeds creates a new valid feed successfully."""
+        # Given: A new feed URL that is valid and accessible
+        feed_url = "https://andros.dev/static/social.org"
+        # Clean existing feed if any
+        Feed.objects.filter(url=feed_url).delete()
 
         # When: We POST the new feed
         response = self.client.post(
@@ -95,9 +96,11 @@ class FeedsViewTest(TestCase):
 
     def test_post_feed_with_whitespace_handling(self):
         """Test POST /feeds handles whitespace in feed URLs correctly."""
-        # Given: A feed URL with leading/trailing whitespace
-        feed_url_with_spaces = "  https://spaced.com/social.org  "
-        clean_feed_url = "https://spaced.com/social.org"
+        # Given: A valid feed URL with leading/trailing whitespace
+        feed_url_with_spaces = "  https://andros.dev/static/social.org  "
+        clean_feed_url = "https://andros.dev/static/social.org"
+        # Clean existing feed if any
+        Feed.objects.filter(url=clean_feed_url).delete()
 
         # When: We POST the feed with whitespace
         response = self.client.post(
@@ -202,8 +205,10 @@ class FeedsViewTest(TestCase):
 
     def test_post_feed_response_format_compliance(self):
         """Test POST /feeds response format matches README specification."""
-        # Given: A new feed URL
-        feed_url = "https://format-test.com/social.org"
+        # Given: A valid feed URL
+        feed_url = "https://rossabaker.com/social.org"
+        # Clean existing feed if any
+        Feed.objects.filter(url=feed_url).delete()
 
         # When: We POST the new feed
         response = self.client.post(
@@ -237,3 +242,40 @@ class FeedsViewTest(TestCase):
             delete_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED
         )
         self.assertEqual(patch_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def test_post_invalid_feed_url_404(self):
+        """Test POST /feeds returns error for invalid feed URL (404)."""
+        # Given: A feed URL that returns 404
+        feed_url = "https://example.com/nonexistent.org"
+
+        # When: We POST the invalid feed
+        response = self.client.post(
+            self.feeds_url,
+            data=json.dumps({"feed": feed_url}),
+            content_type="application/json",
+        )
+
+        # Then: We should get error response with 400 status
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["type"], "Error")
+        self.assertIn("Invalid Org Social feed", response.data["errors"][0])
+        self.assertIsNone(response.data["data"])
+
+    def test_post_invalid_feed_content(self):
+        """Test POST /feeds returns error for URL with invalid content."""
+        # Given: A URL that returns HTML instead of Org Social content
+        feed_url = "https://www.google.com"
+
+        # When: We POST the URL with invalid content
+        response = self.client.post(
+            self.feeds_url,
+            data=json.dumps({"feed": feed_url}),
+            content_type="application/json",
+        )
+
+        # Then: We should get error response with 400 status
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["type"], "Error")
+        self.assertIn("Invalid Org Social feed", response.data["errors"][0])
+        self.assertIn("missing basic metadata", response.data["errors"][0])
+        self.assertIsNone(response.data["data"])

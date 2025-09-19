@@ -17,9 +17,10 @@ Including another URLconf
 
 from django.urls import path
 from app.public.views import root_view
-from app.feeds.views import FeedsView
+from app.feeds.views import FeedsView, MentionsView
 
 urlpatterns = [
     path("", root_view, name="root"),
     path("feeds/", FeedsView.as_view(), name="feeds"),
+    path("mentions/", MentionsView.as_view(), name="mentions"),
 ]
