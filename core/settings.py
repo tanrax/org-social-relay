@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
+import socket
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -115,20 +116,21 @@ REST_FRAMEWORK = {
 }
 
 # Cache configuration
-import socket
+
 
 def redis_available():
     """Check if Redis is available"""
     try:
-        redis_host = os.environ.get('REDIS_HOST', 'redis')
-        redis_port = int(os.environ.get('REDIS_PORT', 6379))
+        redis_host = os.environ.get("REDIS_HOST", "redis")
+        redis_port = int(os.environ.get("REDIS_PORT", 6379))
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(1)
         result = sock.connect_ex((redis_host, redis_port))
         sock.close()
         return result == 0
-    except:
+    except Exception:
         return False
+
 
 if DEBUG or not redis_available():
     CACHES = {
@@ -148,6 +150,7 @@ else:
 HUEY = {
     "huey_class": "huey.RedisHuey",
     "name": "org-social-relay",
+    "immediate": False,  # Required for consumer to run
     "connection": {
         "host": os.environ.get("REDIS_HOST", "redis"),
         "port": int(os.environ.get("REDIS_PORT", 6379)),

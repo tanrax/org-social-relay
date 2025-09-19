@@ -6,7 +6,7 @@ class Profile(models.Model):
     Represents an Org Social profile (social.org file)
     """
 
-    url = models.URLField(unique=True, help_text="URL to the social.org file")
+    feed = models.URLField(unique=True, help_text="URL to the social.org file")
     title = models.CharField(max_length=200, help_text="Title of the social feed")
     nick = models.CharField(max_length=100, help_text="Nickname (no spaces allowed)")
     description = models.TextField(
@@ -15,6 +15,11 @@ class Profile(models.Model):
     avatar = models.URLField(
         blank=True, help_text="URL to avatar image (128x128px JPG/PNG)"
     )
+    version = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Version identifier for tracking changes (hash of content)",
+    )
     last_updated = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -22,7 +27,7 @@ class Profile(models.Model):
         ordering = ["-last_updated"]
 
     def __str__(self):
-        return f"{self.nick} ({self.title})"
+        return f"{self.nick} ({self.feed})"
 
 
 class ProfileLink(models.Model):
@@ -177,15 +182,29 @@ class PollVote(models.Model):
         return f"{self.post.profile.nick} voted {self.poll_option}"
 
 
-class Tag(models.Model):
+class Mention(models.Model):
     """
-    Represents a tag for categorizing feeds
+    Represents a mention in a post
     """
 
-    name = models.CharField(max_length=100, unique=True)
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="mentions")
+    mentioned_profile = models.ForeignKey(
+        Profile,
+        on_delete=models.CASCADE,
+        related_name="incoming_mentions",
+        help_text="The profile that was mentioned",
+    )
+    nickname = models.CharField(
+        max_length=100, blank=True, help_text="Nickname used in the mention"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ["post", "mentioned_profile"]
+        ordering = ["-created_at"]
 
     def __str__(self):
-        return self.name
+        return f"{self.post.profile.nick} mentioned {self.mentioned_profile.nick}"
 
 
 class Feed(models.Model):
@@ -194,7 +213,7 @@ class Feed(models.Model):
     """
 
     url = models.URLField()
-    tags = models.ManyToManyField(Tag, blank=True, related_name="feeds")
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.url

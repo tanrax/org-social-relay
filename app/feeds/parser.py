@@ -1,6 +1,6 @@
 import re
 import requests
-from typing import Dict, Any
+from typing import Dict, Any, Tuple
 
 
 def parse_org_social(url: str) -> Dict[str, Any]:
@@ -242,3 +242,59 @@ def parse_org_social_content(content: str) -> Dict[str, Any]:
                 result["posts"].append(post)
 
     return result
+
+
+def validate_org_social_feed(url: str) -> Tuple[bool, str]:
+    """
+    Validate if a URL returns a valid Org Social feed.
+
+    Args:
+        url: The URL to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    try:
+        # Check if URL responds with 200
+        response = requests.get(url, timeout=10)
+        if response.status_code != 200:
+            return False, f"URL returned status code {response.status_code}"
+
+        content = response.text
+
+        # Check if content has basic Org Social structure
+        # At minimum should have at least one #+TITLE, #+NICK, or #+DESCRIPTION
+        has_title = bool(re.search(r"^\s*\#\+TITLE:\s*(.+)$", content, re.MULTILINE))
+        has_nick = bool(re.search(r"^\s*\#\+NICK:\s*(.+)$", content, re.MULTILINE))
+        has_description = bool(
+            re.search(r"^\s*\#\+DESCRIPTION:\s*(.+)$", content, re.MULTILINE)
+        )
+
+        if not (has_title or has_nick or has_description):
+            return (
+                False,
+                "Content does not appear to be a valid Org Social file (missing basic metadata)",
+            )
+
+        # Try to parse the content to ensure it's valid
+        try:
+            parsed_data = parse_org_social_content(content)
+            # Check that we have at least some metadata
+            metadata = parsed_data.get("metadata", {})
+            if not any(
+                [
+                    metadata.get("title"),
+                    metadata.get("nick"),
+                    metadata.get("description"),
+                ]
+            ):
+                return False, "Parsed content lacks required metadata"
+        except Exception as e:
+            return False, f"Failed to parse Org Social content: {str(e)}"
+
+        return True, ""
+
+    except requests.RequestException as e:
+        return False, f"Failed to fetch URL: {str(e)}"
+    except Exception as e:
+        return False, f"Validation error: {str(e)}"

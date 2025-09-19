@@ -2,8 +2,12 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.core.cache import cache
+import logging
 
-from .models import Feed
+from .models import Feed, Profile, Mention
+from .parser import validate_org_social_feed
+
+logger = logging.getLogger(__name__)
 
 
 class FeedsView(APIView):
@@ -40,17 +44,122 @@ class FeedsView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Create or get feed
-        feed, created = Feed.objects.get_or_create(url=feed_url.strip())
+        feed_url = feed_url.strip()
 
-        # If a new feed was created, invalidate the cache
-        if created:
+        # Check if feed already exists
+        existing_feed = Feed.objects.filter(url=feed_url).first()
+        if existing_feed:
+            return Response(
+                {"type": "Success", "errors": [], "data": {"feed": feed_url}},
+                status=status.HTTP_200_OK,
+            )
+
+        # Validate the feed before adding it
+        logger.info(f"Validating new feed: {feed_url}")
+        is_valid, error_message = validate_org_social_feed(feed_url)
+
+        if not is_valid:
+            logger.warning(f"Feed validation failed for {feed_url}: {error_message}")
+            return Response(
+                {
+                    "type": "Error",
+                    "errors": [f"Invalid Org Social feed: {error_message}"],
+                    "data": None,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Create the feed
+        try:
+            Feed.objects.create(url=feed_url)
+            logger.info(f"Successfully added new feed: {feed_url}")
+
+            # Invalidate the cache
             cache.delete("feeds_list")
 
-        # Return appropriate status code
-        response_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+            return Response(
+                {"type": "Success", "errors": [], "data": {"feed": feed_url}},
+                status=status.HTTP_201_CREATED,
+            )
+        except Exception as e:
+            logger.error(f"Failed to create feed {feed_url}: {str(e)}")
+            return Response(
+                {
+                    "type": "Error",
+                    "errors": ["Failed to add feed to database"],
+                    "data": None,
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class MentionsView(APIView):
+    """Get mentions for a specific feed URL"""
+
+    def get(self, request):
+        feed_url = request.query_params.get("feed")
+
+        if not feed_url or not feed_url.strip():
+            return Response(
+                {
+                    "type": "Error",
+                    "errors": ["Feed URL parameter is required"],
+                    "data": None,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        feed_url = feed_url.strip()
+
+        # Try to get mentions from cache first
+        cache_key = f"mentions_{feed_url}"
+        cached_mentions = cache.get(cache_key)
+
+        if cached_mentions is not None:
+            return Response(
+                {"type": "Success", "errors": [], "data": cached_mentions},
+                status=status.HTTP_200_OK,
+            )
+
+        # Check if the profile exists
+        try:
+            profile = Profile.objects.get(feed=feed_url)
+        except Profile.DoesNotExist:
+            return Response(
+                {
+                    "type": "Error",
+                    "errors": ["Profile not found for the given feed URL"],
+                    "data": None,
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Get all mentions for this profile
+        mentions = Mention.objects.filter(mentioned_profile=profile).select_related(
+            "post", "post__profile"
+        )
+
+        mentions_data = []
+        for mention in mentions:
+            mentions_data.append(
+                {
+                    "post_id": mention.post.post_id,
+                    "content": mention.post.content,
+                    "author": {
+                        "feed": mention.post.profile.feed,
+                        "nick": mention.post.profile.nick,
+                        "title": mention.post.profile.title,
+                    },
+                    "nickname_used": mention.nickname,
+                    "created_at": mention.created_at.isoformat(),
+                    "post_url": f"{mention.post.profile.feed}#{mention.post.post_id}",
+                }
+            )
+
+        # Cache for 5 minutes (300 seconds)
+        cache.set(cache_key, mentions_data, 300)
 
         return Response(
-            {"type": "Success", "errors": [], "data": {"feed": feed_url.strip()}},
-            status=response_status,
+            {"type": "Success", "errors": [], "data": mentions_data},
+            status=status.HTTP_200_OK,
         )
