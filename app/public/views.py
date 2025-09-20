@@ -31,6 +31,12 @@ def root_view(request):
                     "href": "/groups/{group id}/members/?feed={url feed}",
                     "method": "POST",
                 },
+                {"rel": "list-polls", "href": "/polls/", "method": "GET"},
+                {
+                    "rel": "get-poll-votes",
+                    "href": "/polls/votes/?post={url post}",
+                    "method": "GET",
+                },
             ]
         }
     )
