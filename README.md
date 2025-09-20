@@ -23,10 +23,12 @@ Org Social Relay is a P2P system that acts as an intermediary between all [Org S
 | `/feeds/` (POST) | ✅ |
 | `/mentions/` | ✅ |
 | `/replies/` | ❌ |
-| `/search` | ❌ |
+| `/search/` | ❌ |
 | `/groups/` | ❌ |
 | `/groups/{id}/members/` | ❌ |
 | `/groups/{id}/messages/` | ❌ |
+| `/polls/` | ❌ |
+| `/polls/votes/` | ❌ |
 
 ## Installation
 
@@ -76,10 +78,12 @@ curl http://localhost:8080/
         {"rel": "add-feed", "href": "/feeds/", "method": "POST"},
         {"rel": "get-mentions", "href": "/mentions/?feed={url feed}", "method": "GET"},
         {"rel": "get-replies", "href": "/replies/?post={url post}", "method": "GET"},
-        {"rel": "search", "href": "/search?q={query}", "method": "GET"},
+        {"rel": "search", "href": "/search?/q={query}", "method": "GET"},
         {"rel": "list-groups", "href": "/groups/", "method": "GET"},
         {"rel": "get-group-messages", "href": "/groups/{group id}/messages/", "method": "GET"},
-        {"rel": "register-group-member", "href": "/groups/{group id}/members/?feed={url feed}", "method": "POST"}
+        {"rel": "register-group-member", "href": "/groups/{group id}/members/?feed={url feed}", "method": "POST"},
+        {"rel": "list-polls", "href": "/polls/", "method": "GET"},
+        {"rel": "get-poll-votes", "href": "/polls/votes/?post={url post}", "method": "GET"}
     ]
 }
 ```
@@ -197,8 +201,8 @@ The `version` in the `meta` field is a unique identifier for the current state o
 
 ### Search
 
-`/search?q={query}` - Search posts by free text.
-`/search?tag={tag}` - Search posts by tag.
+`/search/?q={query}` - Search posts by free text.
+`/search/?tag={tag}` - Search posts by tag.
 
 ```sh
 curl http://localhost:8080/search?q=emacs
@@ -322,6 +326,79 @@ curl http://localhost:8080/groups/1/messages/
 ```
 
 The `version` in the `meta` field is a unique identifier for the current state of messages in the group. You can use it to check if there are new messages since your last request.
+
+### List polls
+
+`/polls/` - List all polls from the relay. Results are ordered from most recent to oldest.
+
+```sh
+curl http://localhost:8080/polls/
+```
+
+```json
+{
+    "type": "Success",
+    "errors": [],
+    "data": [
+        "https://foo.org/social.org#2025-02-03T23:05:00+0100",
+        "https://bar.org/social.org#2025-02-04T10:15:00+0100",
+        "https://baz.org/social.org#2025-02-05T08:30:00+0100"
+    ],
+    "meta": {
+        "total": 3,
+        "version": "123"
+    }
+}
+```
+
+The `version` in the `meta` field is a unique identifier for the current state of polls. You can use it to check if there are new polls since your last request.
+
+### Get poll votes
+
+`/polls/votes/?post={url post}` - Get votes for a specific poll.
+
+```sh
+curl http://localhost:8080/polls/votes/?post=https://foo.org/social.org#2025-02-03T23:05:00+0100
+```
+
+```json
+{
+    "type": "Success",
+    "errors": [],
+    "data": [
+        {
+            "option": "Cat",
+            "votes": [
+                "https://alice.org/social.org#2025-02-04T10:15:00+0100",
+                "https://bob.org/social.org#2025-02-04T11:30:00+0100"
+            ]
+        },
+        {
+            "option": "Dog",
+            "votes": [
+                "https://charlie.org/social.org#2025-02-04T12:45:00+0100"
+            ]
+        },
+        {
+            "option": "Fish",
+            "votes": []
+        },
+        {
+            "option": "Bird",
+            "votes": [
+                "https://diana.org/social.org#2025-02-04T14:20:00+0100"
+            ]
+        }
+    ],
+    "meta": {
+        "poll": "https://foo.org/social.org#2025-02-03T23:05:00+0100",
+        "total_votes": 4,
+        "version": "123"
+    }
+}
+```
+
+The `version` in the `meta` field is a unique identifier for the current state of votes for the given poll. You can use it to check if there are new votes since your last request.
 
 ## Technical information
 
