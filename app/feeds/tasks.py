@@ -564,9 +564,14 @@ def scan_feeds():
                         if not mention_url:
                             continue
 
+                        # Extract the base URL (remove post ID after #)
+                        base_mention_url = mention_url.split("#")[0]
+
                         # Try to find the mentioned profile
                         try:
-                            mentioned_profile = Profile.objects.get(feed=mention_url)
+                            mentioned_profile = Profile.objects.get(
+                                feed=base_mention_url
+                            )
 
                             # Create the mention
                             Mention.objects.get_or_create(
