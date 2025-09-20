@@ -113,13 +113,10 @@ class MentionsView(APIView):
 
         # Try to get mentions from cache first
         cache_key = f"mentions_{feed_url}"
-        cached_mentions = cache.get(cache_key)
+        cached_response = cache.get(cache_key)
 
-        if cached_mentions is not None:
-            return Response(
-                {"type": "Success", "errors": [], "data": cached_mentions},
-                status=status.HTTP_200_OK,
-            )
+        if cached_response is not None:
+            return Response(cached_response, status=status.HTTP_200_OK)
 
         # Check if the profile exists
         try:
