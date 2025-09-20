@@ -134,32 +134,33 @@ class MentionsView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Get all mentions for this profile
-        mentions = Mention.objects.filter(mentioned_profile=profile).select_related(
-            "post", "post__profile"
+        # Get all mentions for this profile, ordered by post date (most recent first)
+        mentions = (
+            Mention.objects.filter(mentioned_profile=profile)
+            .select_related("post", "post__profile")
+            .order_by("-post__post_id")
         )
 
+        # Build data according to README spec - just post URLs
         mentions_data = []
         for mention in mentions:
-            mentions_data.append(
-                {
-                    "post_id": mention.post.post_id,
-                    "content": mention.post.content,
-                    "author": {
-                        "feed": mention.post.profile.feed,
-                        "nick": mention.post.profile.nick,
-                        "title": mention.post.profile.title,
-                    },
-                    "nickname_used": mention.nickname,
-                    "created_at": mention.created_at.isoformat(),
-                    "post_url": f"{mention.post.profile.feed}#{mention.post.post_id}",
-                }
-            )
+            post_url = f"{mention.post.profile.feed}#{mention.post.post_id}"
+            mentions_data.append(post_url)
+
+        # Generate version hash based on profile's last update and mentions count
+        import hashlib
+
+        version_string = f"{profile.last_updated.isoformat()}_{len(mentions_data)}"
+        version = hashlib.md5(version_string.encode()).hexdigest()[:8]
+
+        response_data = {
+            "type": "Success",
+            "errors": [],
+            "data": mentions_data,
+            "meta": {"feed": feed_url, "total": len(mentions_data), "version": version},
+        }
 
         # Cache for 5 minutes (300 seconds)
-        cache.set(cache_key, mentions_data, 300)
+        cache.set(cache_key, response_data, 300)
 
-        return Response(
-            {"type": "Success", "errors": [], "data": mentions_data},
-            status=status.HTTP_200_OK,
-        )
+        return Response(response_data, status=status.HTTP_200_OK)

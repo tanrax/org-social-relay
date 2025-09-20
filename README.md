@@ -124,7 +124,7 @@ curl -X POST http://localhost:8080/feeds/ -d '{"feed": "https://example.com/path
 
 ### Get mentions
 
-`/mentions/?feed={url feed}` - Get mentions for a given feed.
+`/mentions/?feed={url feed}` - Get mentions for a given feed. Results are ordered from most recent to oldest.
 
 ```sh
 curl http://localhost:8080/mentions/?feed=https://example.com/social.org
