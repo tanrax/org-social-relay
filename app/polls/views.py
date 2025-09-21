@@ -26,7 +26,7 @@ class PollsView(APIView):
             return self._get_all_polls()
 
     def _get_all_polls(self):
-        """Get all active polls in the system"""
+        """Get all polls in the system (active and expired)"""
         cache_key = "all_polls"
         cached_polls = cache.get(cache_key)
 
@@ -36,10 +36,10 @@ class PollsView(APIView):
                 status=status.HTTP_200_OK,
             )
 
-        # Get all active polls (not expired)
+        # Get all polls (both active and expired)
         current_time = timezone.now()
         polls = (
-            Post.objects.filter(poll_end__isnull=False, poll_end__gt=current_time)
+            Post.objects.filter(poll_end__isnull=False)
             .select_related("profile")
             .prefetch_related("poll_options")
             .order_by("-created_at")
@@ -47,6 +47,9 @@ class PollsView(APIView):
 
         polls_data = []
         for poll in polls:
+            # Check if poll is still active
+            is_active = current_time < poll.poll_end if poll.poll_end else False
+
             poll_data = {
                 "id": f"{poll.profile.feed}#{poll.post_id}",
                 "feed": poll.profile.feed,
@@ -54,6 +57,7 @@ class PollsView(APIView):
                 "post_id": poll.post_id,
                 "content": poll.content,
                 "poll_end": poll.poll_end.isoformat(),
+                "is_active": is_active,
                 "options": [opt.option_text for opt in poll.poll_options.all()],
                 "created_at": poll.created_at.isoformat(),
             }
