@@ -34,15 +34,15 @@ def parse_org_social(url: str) -> Dict[str, Any]:
         "posts": [],
     }
 
-    # Parse metadata with regex
-    title_match = re.search(r"^\s*\#\+TITLE:\s*(.+)$", content, re.MULTILINE)
+    # Parse metadata with regex (case insensitive)
+    title_match = re.search(r"^\s*\#\+TITLE:\s*(.+)$", content, re.MULTILINE | re.IGNORECASE)
     result["metadata"]["title"] = title_match.group(1).strip() if title_match else ""
 
-    nick_match = re.search(r"^\s*\#\+NICK:\s*(.+)$", content, re.MULTILINE)
+    nick_match = re.search(r"^\s*\#\+NICK:\s*(.+)$", content, re.MULTILINE | re.IGNORECASE)
     result["metadata"]["nick"] = nick_match.group(1).strip() if nick_match else ""
 
     description_match = re.search(
-        r"^\s*\#\+DESCRIPTION:\s*(.+)$", content, re.MULTILINE
+        r"^\s*\#\+DESCRIPTION:\s*(.+)$", content, re.MULTILINE | re.IGNORECASE
     )
     result["metadata"]["description"] = (
         description_match.group(1).strip() if description_match else ""
@@ -151,15 +151,15 @@ def parse_org_social_content(content: str) -> Dict[str, Any]:
         "posts": [],
     }
 
-    # Parse metadata with regex
-    title_match = re.search(r"^\s*\#\+TITLE:\s*(.+)$", content, re.MULTILINE)
+    # Parse metadata with regex (case insensitive)
+    title_match = re.search(r"^\s*\#\+TITLE:\s*(.+)$", content, re.MULTILINE | re.IGNORECASE)
     result["metadata"]["title"] = title_match.group(1).strip() if title_match else ""
 
-    nick_match = re.search(r"^\s*\#\+NICK:\s*(.+)$", content, re.MULTILINE)
+    nick_match = re.search(r"^\s*\#\+NICK:\s*(.+)$", content, re.MULTILINE | re.IGNORECASE)
     result["metadata"]["nick"] = nick_match.group(1).strip() if nick_match else ""
 
     description_match = re.search(
-        r"^\s*\#\+DESCRIPTION:\s*(.+)$", content, re.MULTILINE
+        r"^\s*\#\+DESCRIPTION:\s*(.+)$", content, re.MULTILINE | re.IGNORECASE
     )
     result["metadata"]["description"] = (
         description_match.group(1).strip() if description_match else ""
@@ -263,11 +263,11 @@ def validate_org_social_feed(url: str) -> Tuple[bool, str]:
         content = response.text
 
         # Check if content has basic Org Social structure
-        # At minimum should have at least one #+TITLE, #+NICK, or #+DESCRIPTION
-        has_title = bool(re.search(r"^\s*\#\+TITLE:\s*(.+)$", content, re.MULTILINE))
-        has_nick = bool(re.search(r"^\s*\#\+NICK:\s*(.+)$", content, re.MULTILINE))
+        # At minimum should have at least one #+TITLE, #+NICK, or #+DESCRIPTION (case insensitive)
+        has_title = bool(re.search(r"^\s*\#\+TITLE:\s*(.+)$", content, re.MULTILINE | re.IGNORECASE))
+        has_nick = bool(re.search(r"^\s*\#\+NICK:\s*(.+)$", content, re.MULTILINE | re.IGNORECASE))
         has_description = bool(
-            re.search(r"^\s*\#\+DESCRIPTION:\s*(.+)$", content, re.MULTILINE)
+            re.search(r"^\s*\#\+DESCRIPTION:\s*(.+)$", content, re.MULTILINE | re.IGNORECASE)
         )
 
         if not (has_title or has_nick or has_description):
