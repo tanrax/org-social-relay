@@ -68,28 +68,37 @@ class PollsViewTest(TestCase):
             poll_option="Python",
         )
 
-    def test_get_all_active_polls(self):
-        """Test GET /polls returns all active polls."""
+    def test_get_all_polls(self):
+        """Test GET /polls returns all polls (active and expired)."""
         # Given: Active and expired polls exist
         # (Setup already creates these)
 
         # When: We request all polls
         response = self.client.get(self.polls_url)
 
-        # Then: We should get only active polls
+        # Then: We should get both active and expired polls
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["type"], "Success")
         self.assertEqual(response.data["errors"], [])
-        self.assertEqual(len(response.data["data"]), 1)  # Only active poll
+        self.assertEqual(len(response.data["data"]), 2)  # Both active and expired polls
 
-        # Then: Response should contain poll details
-        poll_data = response.data["data"][0]
-        self.assertEqual(poll_data["id"], f"{self.profile1.feed}#{self.active_poll.post_id}")
-        self.assertEqual(poll_data["feed"], self.profile1.feed)
-        self.assertEqual(poll_data["author"], self.profile1.nick)
-        self.assertEqual(poll_data["post_id"], self.active_poll.post_id)
-        self.assertIn("options", poll_data)
-        self.assertEqual(len(poll_data["options"]), 4)
+        # Then: Response should contain poll details with is_active field
+        for poll_data in response.data["data"]:
+            self.assertIn("id", poll_data)
+            self.assertIn("feed", poll_data)
+            self.assertIn("author", poll_data)
+            self.assertIn("post_id", poll_data)
+            self.assertIn("options", poll_data)
+            self.assertIn("is_active", poll_data)  # New field to indicate if poll is active
+            self.assertIsInstance(poll_data["is_active"], bool)
+
+        # Then: Active poll should be marked as active
+        active_poll_data = next(p for p in response.data["data"] if p["post_id"] == self.active_poll.post_id)
+        self.assertTrue(active_poll_data["is_active"])
+
+        # Then: Expired poll should be marked as inactive
+        expired_poll_data = next(p for p in response.data["data"] if p["post_id"] == self.expired_poll.post_id)
+        self.assertFalse(expired_poll_data["is_active"])
 
     def test_get_polls_for_specific_feed(self):
         """Test GET /polls?feed=<url> returns polls for specific feed."""
