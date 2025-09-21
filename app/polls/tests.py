@@ -69,36 +69,35 @@ class PollsViewTest(TestCase):
         )
 
     def test_get_all_polls(self):
-        """Test GET /polls returns all polls (active and expired)."""
+        """Test GET /polls returns all polls URLs (active and expired)."""
         # Given: Active and expired polls exist
         # (Setup already creates these)
 
         # When: We request all polls
         response = self.client.get(self.polls_url)
 
-        # Then: We should get both active and expired polls
+        # Then: We should get both active and expired polls as URLs
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["type"], "Success")
         self.assertEqual(response.data["errors"], [])
         self.assertEqual(len(response.data["data"]), 2)  # Both active and expired polls
 
-        # Then: Response should contain poll details with is_active field
-        for poll_data in response.data["data"]:
-            self.assertIn("id", poll_data)
-            self.assertIn("feed", poll_data)
-            self.assertIn("author", poll_data)
-            self.assertIn("post_id", poll_data)
-            self.assertIn("options", poll_data)
-            self.assertIn("is_active", poll_data)  # New field to indicate if poll is active
-            self.assertIsInstance(poll_data["is_active"], bool)
+        # Then: Response should contain poll URLs in the correct format
+        expected_active_url = f"{self.profile1.feed}#{self.active_poll.post_id}"
+        expected_expired_url = f"{self.profile1.feed}#{self.expired_poll.post_id}"
 
-        # Then: Active poll should be marked as active
-        active_poll_data = next(p for p in response.data["data"] if p["post_id"] == self.active_poll.post_id)
-        self.assertTrue(active_poll_data["is_active"])
+        self.assertIn(expected_active_url, response.data["data"])
+        self.assertIn(expected_expired_url, response.data["data"])
 
-        # Then: Expired poll should be marked as inactive
-        expired_poll_data = next(p for p in response.data["data"] if p["post_id"] == self.expired_poll.post_id)
-        self.assertFalse(expired_poll_data["is_active"])
+        # Then: All data items should be strings (URLs)
+        for poll_url in response.data["data"]:
+            self.assertIsInstance(poll_url, str)
+            self.assertIn("#", poll_url)  # Should contain the # separator
+
+        # Then: Meta should contain total and version
+        self.assertIn("meta", response.data)
+        self.assertEqual(response.data["meta"]["total"], 2)
+        self.assertIn("version", response.data["meta"])
 
     def test_get_polls_for_specific_feed(self):
         """Test GET /polls?feed=<url> returns polls for specific feed."""
@@ -290,14 +289,15 @@ class PollVotesViewTest(TestCase):
         )
 
     def test_get_poll_votes_success(self):
-        """Test GET /polls/votes/?feed=<feed>&poll_id=<poll_id> returns poll votes."""
+        """Test GET /polls/votes/?post=<post_url> returns poll votes."""
         # Given: A poll with votes exists
         poll_votes_url = "/polls/votes/"
+        post_url = f"{self.profile1.feed}#{self.poll.post_id}"
 
         # When: We request votes for the poll
         response = self.client.get(
             poll_votes_url,
-            {"feed": self.profile1.feed, "poll_id": self.poll.post_id}
+            {"post": post_url}
         )
 
         # Then: We should get poll votes successfully
@@ -305,36 +305,46 @@ class PollVotesViewTest(TestCase):
         self.assertEqual(response.data["type"], "Success")
         self.assertEqual(response.data["errors"], [])
 
-        # Then: Response should contain poll information
-        poll_data = response.data["data"]["poll"]
-        self.assertEqual(poll_data["id"], f"{self.profile1.feed}#{self.poll.post_id}")
-        self.assertEqual(poll_data["feed"], self.profile1.feed)
-        self.assertEqual(poll_data["author"], self.profile1.nick)
-        self.assertEqual(len(poll_data["options"]), 3)
+        # Then: Response should contain vote data in README format
+        data = response.data["data"]
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 3)  # 3 options
 
-        # Then: Response should contain votes
-        votes_data = response.data["data"]["votes"]
-        self.assertEqual(len(votes_data), 2)
+        # Then: Each option should have the correct structure
+        option_names = [item["option"] for item in data]
+        self.assertIn("Django", option_names)
+        self.assertIn("Flask", option_names)
+        self.assertIn("FastAPI", option_names)
 
-        # Then: Response should contain vote counts
-        vote_counts = response.data["data"]["vote_counts"]
-        self.assertEqual(vote_counts["Django"], 1)
-        self.assertEqual(vote_counts["Flask"], 1)
-        self.assertEqual(vote_counts["FastAPI"], 0)  # No votes for this option
+        # Then: Check vote counts
+        django_votes = next(item for item in data if item["option"] == "Django")["votes"]
+        flask_votes = next(item for item in data if item["option"] == "Flask")["votes"]
+        fastapi_votes = next(item for item in data if item["option"] == "FastAPI")["votes"]
 
-        # Then: Response should contain total votes
-        self.assertEqual(response.data["data"]["total_votes"], 2)
+        self.assertEqual(len(django_votes), 1)
+        self.assertEqual(len(flask_votes), 1)
+        self.assertEqual(len(fastapi_votes), 0)
+
+        # Then: Votes should be URLs in correct format
+        self.assertIn(f"{self.profile2.feed}#{self.vote_post1.post_id}", django_votes)
+        self.assertIn(f"{self.profile3.feed}#{self.vote_post2.post_id}", flask_votes)
+
+        # Then: Meta should contain correct information
+        meta = response.data["meta"]
+        self.assertEqual(meta["poll"], post_url)
+        self.assertEqual(meta["total_votes"], 2)
+        self.assertIn("version", meta)
 
     def test_get_poll_votes_nonexistent_poll(self):
         """Test GET /polls/votes/ returns 404 for nonexistent poll."""
         # Given: A poll ID that doesn't exist
-        nonexistent_poll_id = "2025-01-01T00:00:00+00:00"
+        nonexistent_post_url = f"{self.profile1.feed}#2025-01-01T00:00:00+00:00"
         poll_votes_url = "/polls/votes/"
 
         # When: We request votes for nonexistent poll
         response = self.client.get(
             poll_votes_url,
-            {"feed": self.profile1.feed, "poll_id": nonexistent_poll_id}
+            {"post": nonexistent_post_url}
         )
 
         # Then: We should get 404 error
@@ -346,13 +356,13 @@ class PollVotesViewTest(TestCase):
     def test_get_poll_votes_nonexistent_profile(self):
         """Test GET /polls/votes/ returns 404 for nonexistent profile."""
         # Given: A profile feed that doesn't exist
-        nonexistent_feed = "https://nonexistent.com/social.org"
+        nonexistent_post_url = f"https://nonexistent.com/social.org#{self.poll.post_id}"
         poll_votes_url = "/polls/votes/"
 
         # When: We request votes for poll from nonexistent profile
         response = self.client.get(
             poll_votes_url,
-            {"feed": nonexistent_feed, "poll_id": self.poll.post_id}
+            {"post": nonexistent_post_url}
         )
 
         # Then: We should get 404 error
@@ -365,11 +375,12 @@ class PollVotesViewTest(TestCase):
         """Test GET /polls/votes/ returns 400 for non-poll post."""
         # Given: A regular post (not a poll)
         poll_votes_url = "/polls/votes/"
+        non_poll_url = f"{self.profile1.feed}#{self.non_poll.post_id}"
 
         # When: We request votes for non-poll post
         response = self.client.get(
             poll_votes_url,
-            {"feed": self.profile1.feed, "poll_id": self.non_poll.post_id}
+            {"post": non_poll_url}
         )
 
         # Then: We should get 400 error
@@ -382,11 +393,12 @@ class PollVotesViewTest(TestCase):
         """Test poll votes response format compliance."""
         # Given: A poll with votes exists
         poll_votes_url = "/polls/votes/"
+        post_url = f"{self.profile1.feed}#{self.poll.post_id}"
 
         # When: We request poll votes
         response = self.client.get(
             poll_votes_url,
-            {"feed": self.profile1.feed, "poll_id": self.poll.post_id}
+            {"post": post_url}
         )
 
         # Then: Response should match expected format
@@ -397,21 +409,21 @@ class PollVotesViewTest(TestCase):
         self.assertIn("meta", response.data)
         self.assertEqual(response.data["type"], "Success")
         self.assertIsInstance(response.data["errors"], list)
-        self.assertIsInstance(response.data["data"], dict)
+        self.assertIsInstance(response.data["data"], list)
         self.assertIsInstance(response.data["meta"], dict)
 
-        # Then: Data should contain required fields
+        # Then: Data should be array of options with votes
         data = response.data["data"]
-        self.assertIn("poll", data)
-        self.assertIn("votes", data)
-        self.assertIn("vote_counts", data)
-        self.assertIn("total_votes", data)
+        for option in data:
+            self.assertIn("option", option)
+            self.assertIn("votes", option)
+            self.assertIsInstance(option["votes"], list)
 
     def test_poll_votes_view_methods_allowed(self):
         """Test that only GET method is allowed on poll votes endpoint."""
         # Given: A valid poll votes URL
         poll_votes_url = "/polls/votes/"
-        params = {"feed": self.profile1.feed, "poll_id": self.poll.post_id}
+        params = {"post": f"{self.profile1.feed}#{self.poll.post_id}"}
 
         # When: We try different HTTP methods
         post_response = self.client.post(poll_votes_url, params)
@@ -426,7 +438,7 @@ class PollVotesViewTest(TestCase):
         self.assertEqual(patch_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
     def test_poll_votes_url_encoding_handling(self):
-        """Test that special characters in feed parameter are handled correctly."""
+        """Test that special characters in post parameter are handled correctly."""
         # Given: A feed URL that has special characters
         special_profile = Profile.objects.create(
             feed="https://example.com/user name/social.org",
@@ -442,18 +454,19 @@ class PollVotesViewTest(TestCase):
             poll_end=timezone.now() + timedelta(hours=1),
         )
 
-        # When: We request votes using query parameters
+        # When: We request votes using post parameter
         poll_votes_url = "/polls/votes/"
+        post_url = f"{special_profile.feed}#{special_poll.post_id}"
         response = self.client.get(
             poll_votes_url,
-            {"feed": special_profile.feed, "poll_id": special_poll.post_id}
+            {"post": post_url}
         )
 
         # Then: Request should be handled correctly
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["type"], "Success")
-        poll_data = response.data["data"]["poll"]
-        self.assertEqual(poll_data["feed"], special_profile.feed)
+        meta = response.data["meta"]
+        self.assertEqual(meta["poll"], post_url)
 
     def test_poll_votes_missing_parameters(self):
         """Test that missing required parameters return 400 error."""
@@ -462,13 +475,21 @@ class PollVotesViewTest(TestCase):
 
         # When: We request without required parameters
         response_no_params = self.client.get(poll_votes_url)
-        response_no_feed = self.client.get(poll_votes_url, {"poll_id": "some_id"})
-        response_no_poll_id = self.client.get(poll_votes_url, {"feed": "some_feed"})
 
-        # Then: All should return 400 error
+        # Then: Should return 400 error
         self.assertEqual(response_no_params.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response_no_feed.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response_no_poll_id.status_code, status.HTTP_400_BAD_REQUEST)
-
         self.assertEqual(response_no_params.data["type"], "Error")
         self.assertIn("required", response_no_params.data["errors"][0])
+
+    def test_poll_votes_invalid_post_format(self):
+        """Test that invalid post URL format returns 400 error."""
+        # Given: Poll votes endpoint
+        poll_votes_url = "/polls/votes/"
+
+        # When: We request with invalid post format (no # separator)
+        response = self.client.get(poll_votes_url, {"post": "invalid_url_format"})
+
+        # Then: Should return 400 error
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["type"], "Error")
+        self.assertIn("Invalid post URL format", response.data["errors"][0])

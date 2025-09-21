@@ -47,34 +47,28 @@ class PollsView(APIView):
 
         polls_data = []
         for poll in polls:
-            # Check if poll is still active
-            is_active = current_time < poll.poll_end if poll.poll_end else False
+            # According to README, should return simple URL format
+            poll_url = f"{poll.profile.feed}#{poll.post_id}"
+            polls_data.append(poll_url)
 
-            poll_data = {
-                "id": f"{poll.profile.feed}#{poll.post_id}",
-                "feed": poll.profile.feed,
-                "author": poll.profile.nick,
-                "post_id": poll.post_id,
-                "content": poll.content,
-                "poll_end": poll.poll_end.isoformat(),
-                "is_active": is_active,
-                "options": [opt.option_text for opt in poll.poll_options.all()],
-                "created_at": poll.created_at.isoformat(),
-            }
-            polls_data.append(poll_data)
+        # Generate version hash for polls
+        version_string = f"all_polls_{len(polls_data)}_{current_time.isoformat()}"
+        version = hashlib.md5(version_string.encode()).hexdigest()[:8]
+
+        response_data = {
+            "type": "Success",
+            "errors": [],
+            "data": polls_data,
+            "meta": {
+                "total": len(polls_data),
+                "version": version,
+            },
+        }
 
         # Cache for 5 minutes
-        cache.set(cache_key, polls_data, 300)
+        cache.set(cache_key, response_data["data"], 300)
 
-        return Response(
-            {
-                "type": "Success",
-                "errors": [],
-                "data": polls_data,
-                "meta": {"total": len(polls_data)},
-            },
-            status=status.HTTP_200_OK,
-        )
+        return Response(response_data, status=status.HTTP_200_OK)
 
     def _get_feed_polls(self, feed_url):
         """Get polls for a specific feed"""
@@ -207,14 +201,28 @@ class PollVotesView(APIView):
     """Get votes for a specific poll"""
 
     def get(self, request):
-        poll_feed = request.query_params.get("feed")
-        poll_id = request.query_params.get("poll_id")
+        post_url = request.query_params.get("post")
 
-        if not poll_feed or not poll_id:
+        if not post_url:
             return Response(
                 {
                     "type": "Error",
-                    "errors": ["Both 'feed' and 'poll_id' parameters are required"],
+                    "errors": ["'post' parameter is required"],
+                    "data": None,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Parse the post URL format: https://feed.com/social.org#post_id
+        try:
+            if "#" not in post_url:
+                raise ValueError("Invalid post URL format")
+            poll_feed, poll_id = post_url.split("#", 1)
+        except ValueError:
+            return Response(
+                {
+                    "type": "Error",
+                    "errors": ["Invalid post URL format. Expected: feed_url#post_id"],
                     "data": None,
                 },
                 status=status.HTTP_400_BAD_REQUEST,
@@ -258,61 +266,42 @@ class PollVotesView(APIView):
             .order_by("-created_at")
         )
 
-        # Count votes by option
-        vote_counts = {}
-        votes_data = []
+        # Group votes by option according to README format
+        vote_options = {}
 
         for vote in votes:
-            vote_data = {
-                "voter_feed": vote.post.profile.feed,
-                "voter_nick": vote.post.profile.nick,
-                "selected_option": vote.poll_option,
-                "vote_post_id": f"{vote.post.profile.feed}#{vote.post.post_id}",
-                "voted_at": vote.created_at.isoformat(),
-            }
-            votes_data.append(vote_data)
+            option = vote.poll_option
+            vote_post_url = f"{vote.post.profile.feed}#{vote.post.post_id}"
 
-            # Count votes
-            if vote.poll_option in vote_counts:
-                vote_counts[vote.poll_option] += 1
-            else:
-                vote_counts[vote.poll_option] = 1
+            if option not in vote_options:
+                vote_options[option] = []
+            vote_options[option].append(vote_post_url)
 
         # Get poll options for complete results
         poll_options = [opt.option_text for opt in poll_post.poll_options.all()]
 
-        # Ensure all options are in vote_counts (even with 0 votes)
+        # Build data array according to README format
+        data = []
+        total_votes = 0
         for option in poll_options:
-            if option not in vote_counts:
-                vote_counts[option] = 0
-
-        # Check if poll is still active
-        is_active = timezone.now() < poll_post.poll_end if poll_post.poll_end else False
+            option_votes = vote_options.get(option, [])
+            total_votes += len(option_votes)
+            data.append({
+                "option": option,
+                "votes": option_votes
+            })
 
         # Generate version hash
-        version_string = f"{poll_post.updated_at.isoformat()}_{len(votes_data)}"
+        version_string = f"{poll_post.updated_at.isoformat()}_{total_votes}"
         version = hashlib.md5(version_string.encode()).hexdigest()[:8]
 
         response_data = {
             "type": "Success",
             "errors": [],
-            "data": {
-                "poll": {
-                    "id": f"{poll_feed}#{poll_id}",
-                    "feed": poll_feed,
-                    "author": poll_post.profile.nick,
-                    "content": poll_post.content,
-                    "poll_end": poll_post.poll_end.isoformat(),
-                    "is_active": is_active,
-                    "options": poll_options,
-                },
-                "votes": votes_data,
-                "vote_counts": vote_counts,
-                "total_votes": len(votes_data),
-            },
+            "data": data,
             "meta": {
-                "poll_id": f"{poll_feed}#{poll_id}",
-                "total_votes": len(votes_data),
+                "poll": f"{poll_feed}#{poll_id}",
+                "total_votes": total_votes,
                 "version": version,
             },
         }
