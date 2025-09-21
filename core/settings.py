@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "huey.contrib.djhuey",
     "app.public.apps.PublicConfig",
     "app.feeds.apps.FeedsConfig",
+    "app.polls.apps.PollsConfig",
     # "app.notifications",
     # "app.groups",
 ]
