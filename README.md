@@ -10,7 +10,7 @@ graph TD
     Node1["🖥️ Node 1"]
     Node2["🖥️ Node 2"]
     Node3["🖥️ Node 3"]
-    
+
     %% Social.org instances with icons
     Social1_1["📄 social.org"]
     Social1_2["📄 social.org"]
@@ -18,12 +18,12 @@ graph TD
     Social2_2["📄 social.org"]
     Social3_1["📄 social.org"]
     Social3_2["📄 social.org"]
-    
+
     %% Parent-child connections with labels
     List -.->|"Get"| Node1
     List -.->|"Get"| Node2
     List -.->|"Get"| Node3
-    
+
     %% Node to social.org connections
     Social1_1 -->|"⚓ Connects"| Node1
     Social1_2 -->|"⚓ Connects"| Node1
@@ -31,17 +31,17 @@ graph TD
     Social2_2 -->|"⚓ Connects"| Node2
     Social3_1 -->|"⚓ Connects"| Node3
     Social3_2 -->|"⚓ Connects"| Node3
-    
+
     %% Bidirectional connections between nodes
     Node1 <-.->|"👥 Share Users"| Node2
     Node2 <-.->|"👥 Share Users"| Node3
     Node1 <-.->|"👥 Share Users"| Node3
-    
+
     %% Modern color scheme with gradients
     classDef socialStyle fill:#667eea,stroke:#764ba2,stroke-width:3px,color:#fff,font-weight:bold
     classDef nodeStyle fill:#f093fb,stroke:#f5576c,stroke-width:3px,color:#fff,font-weight:bold
     classDef listStyle fill:#4facfe,stroke:#00f2fe,stroke-width:4px,color:#fff,font-weight:bold
-    
+
     %% Apply styles
     class Social1_1,Social1_2,Social2_1,Social2_2,Social3_1,Social3_2 socialStyle
     class Node1,Node2,Node3 nodeStyle
@@ -69,7 +69,7 @@ graph TD
 | `/groups/{id}/members/` | ❌ |
 | `/groups/{id}/messages/` | ❌ |
 | `/polls/` | ✅ |
-| `/polls/votes/` | ❌ |
+| `/polls/votes/` | ✅ |
 
 ## Installation
 
