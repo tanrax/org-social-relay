@@ -17,11 +17,14 @@ Including another URLconf
 
 from django.urls import path, include
 from app.public.views import root_view
-from app.feeds.views import FeedsView, MentionsView
+from app.feeds.views import FeedsView
 
 urlpatterns = [
     path("", root_view, name="root"),
     path("feeds/", FeedsView.as_view(), name="feeds"),
-    path("mentions/", MentionsView.as_view(), name="mentions"),
+    path("mentions/", include("app.mentions.urls")),
+    path("replies/", include("app.replies.urls")),
+    path("search/", include("app.search.urls")),
+    path("groups/", include("app.groups.urls")),
     path("polls/", include("app.polls.urls")),
 ]

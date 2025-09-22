@@ -63,11 +63,11 @@ graph TD
 | `/feeds/` (GET) | ✅ |
 | `/feeds/` (POST) | ✅ |
 | `/mentions/` | ✅ |
-| `/replies/` | ❌ |
-| `/search/` | ❌ |
-| `/groups/` | ❌ |
-| `/groups/{id}/members/` | ❌ |
-| `/groups/{id}/messages/` | ❌ |
+| `/replies/` | ✅ |
+| `/search/` | ✅ |
+| `/groups/` | ✅ |
+| `/groups/{id}/` | ✅ |
+| `/groups/{id}/members/` | ✅ |
 | `/polls/` | ✅ |
 | `/polls/votes/` | ✅ |
 
@@ -86,6 +86,13 @@ cp envExample .env
 ```bash
 nano .env
 ```
+
+#### Important Environment Variables
+
+- **`GROUPS`**: Comma-separated list of groups available in the relay (optional)
+  - Example: `GROUPS=emacs,org-social,elisp`
+  - Leave empty if no groups are needed
+  - Groups allow users to participate in topic-based discussions
 
 ### 3. Run with Docker Compose
 
@@ -121,7 +128,7 @@ curl http://localhost:8080/
         {"rel": "get-replies", "href": "/replies/?post={url post}", "method": "GET"},
         {"rel": "search", "href": "/search?/q={query}", "method": "GET"},
         {"rel": "list-groups", "href": "/groups/", "method": "GET"},
-        {"rel": "get-group-messages", "href": "/groups/{group id}/messages/", "method": "GET"},
+        {"rel": "get-group-messages", "href": "/groups/{group id}/", "method": "GET"},
         {"rel": "register-group-member", "href": "/groups/{group id}/members/?feed={url feed}", "method": "POST"},
         {"rel": "list-polls", "href": "/polls/", "method": "GET"},
         {"rel": "get-poll-votes", "href": "/polls/votes/?post={url post}", "method": "GET"}
@@ -333,10 +340,10 @@ curl -X POST "http://localhost:8080/groups/1/members/?feed=https://example.com/s
 
 ### Get group messages
 
-`/groups/{group id}/messages/` - Get messages from a group.
+`/groups/{group id}/` - Get messages from a group.
 
 ```sh
-curl http://localhost:8080/groups/1/messages/
+curl http://localhost:8080/groups/1/
 ```
 
 ```json
@@ -440,6 +447,53 @@ curl http://localhost:8080/polls/votes/?post=https://foo.org/social.org#2025-02-
 ```
 
 The `version` in the `meta` field is a unique identifier for the current state of votes for the given poll. You can use it to check if there are new votes since your last request.
+
+## Groups Configuration
+
+Org Social Relay supports organizing posts into topic-based groups. Users can join groups to participate in focused discussions.
+
+### Configuring Groups
+
+To configure groups in your relay, set the `GROUPS` environment variable with a comma-separated list of group names:
+
+```bash
+# In your .env file
+GROUPS=emacs,org-social,elisp,programming,tech
+```
+
+### Groups Configuration Examples
+
+**No groups (default):**
+```bash
+GROUPS=
+# or simply omit the GROUPS variable
+```
+
+**Single group:**
+```bash
+GROUPS=emacs
+```
+
+**Multiple groups:**
+```bash
+GROUPS=emacs,org-social,elisp
+```
+
+### Groups Naming Guidelines
+
+- Use lowercase letters, numbers, and hyphens
+- Keep names descriptive but concise
+- Examples: `emacs`, `org-social`, `web-dev`, `machine-learning`
+
+### Using Groups
+
+Once configured, users can:
+1. Join groups by registering their feeds as group members
+2. Post messages to specific groups
+3. View group-specific message threads
+4. Discover other group members
+
+The groups endpoints will only be available when groups are configured via the `GROUPS` environment variable.
 
 ## Technical information
 
