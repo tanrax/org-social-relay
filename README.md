@@ -68,7 +68,7 @@ graph TD
 | `/groups/` | ❌ |
 | `/groups/{id}/members/` | ❌ |
 | `/groups/{id}/messages/` | ❌ |
-| `/polls/` | ❌ |
+| `/polls/` | ✅ |
 | `/polls/votes/` | ❌ |
 
 ## Installation
