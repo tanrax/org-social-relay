@@ -286,10 +286,7 @@ class PollVotesView(APIView):
         for option in poll_options:
             option_votes = vote_options.get(option, [])
             total_votes += len(option_votes)
-            data.append({
-                "option": option,
-                "votes": option_votes
-            })
+            data.append({"option": option, "votes": option_votes})
 
         # Generate version hash
         version_string = f"{poll_post.updated_at.isoformat()}_{total_votes}"

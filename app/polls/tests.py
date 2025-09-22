@@ -38,9 +38,13 @@ class PollsViewTest(TestCase):
 
         # Create poll options
         PollOption.objects.create(post=self.active_poll, option_text="Python", order=1)
-        PollOption.objects.create(post=self.active_poll, option_text="JavaScript", order=2)
+        PollOption.objects.create(
+            post=self.active_poll, option_text="JavaScript", order=2
+        )
         PollOption.objects.create(post=self.active_poll, option_text="PHP", order=3)
-        PollOption.objects.create(post=self.active_poll, option_text="Emacs Lisp", order=4)
+        PollOption.objects.create(
+            post=self.active_poll, option_text="Emacs Lisp", order=4
+        )
 
         # Create an expired poll
         self.expired_poll = Post.objects.create(
@@ -105,9 +109,7 @@ class PollsViewTest(TestCase):
         # (Setup already creates these)
 
         # When: We request polls for a specific feed
-        response = self.client.get(
-            self.polls_url, {"feed": self.profile1.feed}
-        )
+        response = self.client.get(self.polls_url, {"feed": self.profile1.feed})
 
         # Then: We should get polls from that feed only
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -126,9 +128,7 @@ class PollsViewTest(TestCase):
         nonexistent_feed = "https://nonexistent.com/social.org"
 
         # When: We request polls for nonexistent feed
-        response = self.client.get(
-            self.polls_url, {"feed": nonexistent_feed}
-        )
+        response = self.client.get(self.polls_url, {"feed": nonexistent_feed})
 
         # Then: We should get 404 error
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -142,9 +142,7 @@ class PollsViewTest(TestCase):
         # (Setup already creates a vote)
 
         # When: We request votes for a specific voter
-        response = self.client.get(
-            self.polls_url, {"voter": self.profile2.feed}
-        )
+        response = self.client.get(self.polls_url, {"voter": self.profile2.feed})
 
         # Then: We should get votes cast by that voter
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -154,8 +152,12 @@ class PollsViewTest(TestCase):
 
         # Then: Vote data should be complete
         vote_data = response.data["data"][0]
-        self.assertEqual(vote_data["vote_post_id"], f"{self.profile2.feed}#{self.vote_post.post_id}")
-        self.assertEqual(vote_data["poll_id"], f"{self.profile1.feed}#{self.active_poll.post_id}")
+        self.assertEqual(
+            vote_data["vote_post_id"], f"{self.profile2.feed}#{self.vote_post.post_id}"
+        )
+        self.assertEqual(
+            vote_data["poll_id"], f"{self.profile1.feed}#{self.active_poll.post_id}"
+        )
         self.assertEqual(vote_data["poll_author"], self.profile1.nick)
         self.assertEqual(vote_data["selected_option"], "Python")
 
@@ -169,9 +171,7 @@ class PollsViewTest(TestCase):
         nonexistent_voter = "https://nonexistent.com/social.org"
 
         # When: We request votes for nonexistent voter
-        response = self.client.get(
-            self.polls_url, {"voter": nonexistent_voter}
-        )
+        response = self.client.get(self.polls_url, {"voter": nonexistent_voter})
 
         # Then: We should get 404 error
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -211,7 +211,9 @@ class PollsViewTest(TestCase):
         # Then: Unsupported methods should return 405
         self.assertEqual(post_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
         self.assertEqual(put_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
-        self.assertEqual(delete_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertEqual(
+            delete_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED
+        )
         self.assertEqual(patch_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
@@ -295,10 +297,7 @@ class PollVotesViewTest(TestCase):
         post_url = f"{self.profile1.feed}#{self.poll.post_id}"
 
         # When: We request votes for the poll
-        response = self.client.get(
-            poll_votes_url,
-            {"post": post_url}
-        )
+        response = self.client.get(poll_votes_url, {"post": post_url})
 
         # Then: We should get poll votes successfully
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -317,9 +316,13 @@ class PollVotesViewTest(TestCase):
         self.assertIn("FastAPI", option_names)
 
         # Then: Check vote counts
-        django_votes = next(item for item in data if item["option"] == "Django")["votes"]
+        django_votes = next(item for item in data if item["option"] == "Django")[
+            "votes"
+        ]
         flask_votes = next(item for item in data if item["option"] == "Flask")["votes"]
-        fastapi_votes = next(item for item in data if item["option"] == "FastAPI")["votes"]
+        fastapi_votes = next(item for item in data if item["option"] == "FastAPI")[
+            "votes"
+        ]
 
         self.assertEqual(len(django_votes), 1)
         self.assertEqual(len(flask_votes), 1)
@@ -342,10 +345,7 @@ class PollVotesViewTest(TestCase):
         poll_votes_url = "/polls/votes/"
 
         # When: We request votes for nonexistent poll
-        response = self.client.get(
-            poll_votes_url,
-            {"post": nonexistent_post_url}
-        )
+        response = self.client.get(poll_votes_url, {"post": nonexistent_post_url})
 
         # Then: We should get 404 error
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -360,10 +360,7 @@ class PollVotesViewTest(TestCase):
         poll_votes_url = "/polls/votes/"
 
         # When: We request votes for poll from nonexistent profile
-        response = self.client.get(
-            poll_votes_url,
-            {"post": nonexistent_post_url}
-        )
+        response = self.client.get(poll_votes_url, {"post": nonexistent_post_url})
 
         # Then: We should get 404 error
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -378,10 +375,7 @@ class PollVotesViewTest(TestCase):
         non_poll_url = f"{self.profile1.feed}#{self.non_poll.post_id}"
 
         # When: We request votes for non-poll post
-        response = self.client.get(
-            poll_votes_url,
-            {"post": non_poll_url}
-        )
+        response = self.client.get(poll_votes_url, {"post": non_poll_url})
 
         # Then: We should get 400 error
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -396,10 +390,7 @@ class PollVotesViewTest(TestCase):
         post_url = f"{self.profile1.feed}#{self.poll.post_id}"
 
         # When: We request poll votes
-        response = self.client.get(
-            poll_votes_url,
-            {"post": post_url}
-        )
+        response = self.client.get(poll_votes_url, {"post": post_url})
 
         # Then: Response should match expected format
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -434,7 +425,9 @@ class PollVotesViewTest(TestCase):
         # Then: Unsupported methods should return 405
         self.assertEqual(post_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
         self.assertEqual(put_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
-        self.assertEqual(delete_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertEqual(
+            delete_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED
+        )
         self.assertEqual(patch_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
     def test_poll_votes_url_encoding_handling(self):
@@ -457,10 +450,7 @@ class PollVotesViewTest(TestCase):
         # When: We request votes using post parameter
         poll_votes_url = "/polls/votes/"
         post_url = f"{special_profile.feed}#{special_poll.post_id}"
-        response = self.client.get(
-            poll_votes_url,
-            {"post": post_url}
-        )
+        response = self.client.get(poll_votes_url, {"post": post_url})
 
         # Then: Request should be handled correctly
         self.assertEqual(response.status_code, status.HTTP_200_OK)
