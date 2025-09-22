@@ -4,8 +4,49 @@
 
 Org Social Relay is a P2P system that acts as an intermediary between all [Org Social](https://github.com/tanrax/org-social) files. It scans the network, creating an index of users, mentions, replies, groups and threads. This allows you to:
 
-![Diagram](https://mermaid.ink/img/pako:eNp1U1FPgzAQ_ivNJUs0YQu0gzFifNke1Rd9ciym0nOrbpS0kEy3_XcLROkUeLi033fftfeVO0KmBEICG82LLXlapjmx35005aoO5MHSZt2i9TpY1dEB6F-AuUAbRyOyqLjQyhCjMsl3E6U3pOCak4wLTnIlVJv52NDBS7DqEteXFB2i6LCKDqvYsIr1qbqOVI4HaYOxnQiN4618V519ZDy-bR3rwWgPxobrC-x8IpyYypDsn5_OGzU1f60cIqjziA5BXcUl4SiYQzBXcUnQ4aYwLzU2LRly9SqF1JhlluI7NNfunW9swVNjVWVQm5PrYHvH3gwGnv2rpYCk1BV6sEe95_UWjrU2hXKLe0whsUvB9UcKaX62moLnz0rtf2RaVZstJG98Z-yuKgQvcSm5nZcuBXOBeqGqvIQkbCpAcoQDJHROJ1Ewm0Y0CGPqs8CDT0iCkE1iGofRLPSnsV2dPfhqjvQnEZ0GEZ1NWRj54dyPPEAhS6Xv2zFtpvX8DWT3JKA?bgColor=!white)
-
+```mermaid
+graph TD
+    List["📋 List nodes"]
+    Node1["🖥️ Node 1"]
+    Node2["🖥️ Node 2"]
+    Node3["🖥️ Node 3"]
+    
+    %% Social.org instances with icons
+    Social1_1["📄 social.org"]
+    Social1_2["📄 social.org"]
+    Social2_1["📄 social.org"]
+    Social2_2["📄 social.org"]
+    Social3_1["📄 social.org"]
+    Social3_2["📄 social.org"]
+    
+    %% Parent-child connections with labels
+    List -.->|"Get"| Node1
+    List -.->|"Get"| Node2
+    List -.->|"Get"| Node3
+    
+    %% Node to social.org connections
+    Social1_1 -->|"⚓ Connects"| Node1
+    Social1_2 -->|"⚓ Connects"| Node1
+    Social2_1 -->|"⚓ Connects"| Node2
+    Social2_2 -->|"⚓ Connects"| Node2
+    Social3_1 -->|"⚓ Connects"| Node3
+    Social3_2 -->|"⚓ Connects"| Node3
+    
+    %% Bidirectional connections between nodes
+    Node1 <-.->|"👥 Share Users"| Node2
+    Node2 <-.->|"👥 Share Users"| Node3
+    Node1 <-.->|"👥 Share Users"| Node3
+    
+    %% Modern color scheme with gradients
+    classDef socialStyle fill:#667eea,stroke:#764ba2,stroke-width:3px,color:#fff,font-weight:bold
+    classDef nodeStyle fill:#f093fb,stroke:#f5576c,stroke-width:3px,color:#fff,font-weight:bold
+    classDef listStyle fill:#4facfe,stroke:#00f2fe,stroke-width:4px,color:#fff,font-weight:bold
+    
+    %% Apply styles
+    class Social1_1,Social1_2,Social2_1,Social2_2,Social3_1,Social3_2 socialStyle
+    class Node1,Node2,Node3 nodeStyle
+    class List listStyle
+```
 [Source](/diagram.mmd)
 
 - Receive mentions and replies.
