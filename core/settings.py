@@ -36,6 +36,14 @@ ALLOWED_HOSTS = os.environ.get(
 # Site domain configuration
 SITE_DOMAIN = os.environ.get("SITE_DOMAIN", "localhost:8080")
 
+# Groups configuration
+# Parse comma-separated groups from environment variable
+GROUPS_ENV = os.environ.get("GROUPS", "")
+if GROUPS_ENV.strip():
+    ENABLED_GROUPS = [group.strip() for group in GROUPS_ENV.split(",") if group.strip()]
+else:
+    ENABLED_GROUPS = []
+
 
 # Application definition
 
@@ -47,8 +55,11 @@ INSTALLED_APPS = [
     "app.public.apps.PublicConfig",
     "app.feeds.apps.FeedsConfig",
     "app.polls.apps.PollsConfig",
+    "app.replies.apps.RepliesConfig",
+    "app.mentions.apps.MentionsConfig",
+    "app.search.apps.SearchConfig",
+    "app.groups.apps.GroupsConfig",
     # "app.notifications",
-    # "app.groups",
 ]
 
 MIDDLEWARE = [
