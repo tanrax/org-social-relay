@@ -1,40 +1,41 @@
 graph TD
-    List[List nodes]
-    Node1[Node]
-    Node2[Node]
-    Node3[Node]
+    List["📋 List nodes"]
+    Node1["🖥️ Node 1"]
+    Node2["🖥️ Node 2"]
+    Node3["🖥️ Node 3"]
     
-    %% Cuadros social.org para cada nodo
-    Social1_1[social.org]
-    Social1_2[social.org]
-    Social2_1[social.org]
-    Social2_2[social.org]
-    Social3_1[social.org]
-    Social3_2[social.org]
+    %% Social.org instances with icons
+    Social1_1["📄 social.org"]
+    Social1_2["📄 social.org"]
+    Social2_1["📄 social.org"]
+    Social2_2["📄 social.org"]
+    Social3_1["📄 social.org"]
+    Social3_2["📄 social.org"]
     
-    %% Conexiones padre-hijo
-    List --> Node1
-    List --> Node2
-    List --> Node3
+    %% Parent-child connections with labels
+    List -.->|"Get"| Node1
+    List -.->|"Get"| Node2
+    List -.->|"Get"| Node3
     
-    %% Conexiones de cada nodo a sus cuadros social.org
-    Node1 --> Social1_1
-    Node1 --> Social1_2
-    Node2 --> Social2_1
-    Node2 --> Social2_2
-    Node3 --> Social3_1
-    Node3 --> Social3_2
+    %% Node to social.org connections
+    Social1_1 -->|"⚓ Connects"| Node1
+    Social1_2 -->|"⚓ Connects"| Node1
+    Social2_1 -->|"⚓ Connects"| Node2
+    Social2_2 -->|"⚓ Connects"| Node2
+    Social3_1 -->|"⚓ Connects"| Node3
+    Social3_2 -->|"⚓ Connects"| Node3
     
-    %% Conexiones entre nodos (bidireccionales)
-    Node1 <-->|List users| Node2
-    Node2 <-->|List users| Node3
+    %% Bidirectional connections between nodes
+    Node1 <-.->|"👥 Share Users"| Node2
+    Node2 <-.->|"👥 Share Users"| Node3
+    Node1 <-.->|"👥 Share Users"| Node3
     
-    %% Estilos de colores
-    classDef socialStyle fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    classDef nodeStyle fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    classDef listStyle fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    %% Modern color scheme with gradients
+    classDef socialStyle fill:#667eea,stroke:#764ba2,stroke-width:3px,color:#fff,font-weight:bold
+    classDef nodeStyle fill:#f093fb,stroke:#f5576c,stroke-width:3px,color:#fff,font-weight:bold
+    classDef listStyle fill:#4facfe,stroke:#00f2fe,stroke-width:4px,color:#fff,font-weight:bold
     
-    %% Aplicar estilos
+    %% Apply styles
     class Social1_1,Social1_2,Social2_1,Social2_2,Social3_1,Social3_2 socialStyle
     class Node1,Node2,Node3 nodeStyle
     class List listStyle
