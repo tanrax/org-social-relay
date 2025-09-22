@@ -55,22 +55,6 @@ graph TD
 - Perform searches (tags and full text).
 - Participate in groups.
 
-## API Status
-
-| Endpoint | Status |
-|----------|---------|
-| `/` | ✅ |
-| `/feeds/` (GET) | ✅ |
-| `/feeds/` (POST) | ✅ |
-| `/mentions/` | ✅ |
-| `/replies/` | ✅ |
-| `/search/` | ✅ |
-| `/groups/` | ✅ |
-| `/groups/{id}/` | ✅ |
-| `/groups/{id}/members/` | ✅ |
-| `/polls/` | ✅ |
-| `/polls/votes/` | ✅ |
-
 ## Installation
 
 You need to have Docker and Docker Compose installed.
@@ -110,6 +94,18 @@ Add your Relay URL (e.g. `https://my-relay.example.com`) in a new line.
 
 ## Endpoints for clients
 
+### Important Note: URL Encoding
+
+When passing URLs as query parameters (like `feed` or `post`), they **must be URL-encoded** to avoid conflicts with special characters like `#`, `?`, `&`, etc.
+
+**Examples:**
+- `https://example.com/social.org` → `https%3A%2F%2Fexample.com%2Fsocial.org`
+- `https://foo.org/social.org#2025-02-03T23:05:00+0100` → `https%3A%2F%2Ffoo.org%2Fsocial.org%232025-02-03T23%3A05%3A00%2B0100`
+
+You can use:
+- Manual encoding: `curl "http://localhost:8080/endpoint/?param=encoded_url"`
+- curl's automatic encoding: `curl -G "http://localhost:8080/endpoint/" --data-urlencode "param=unencoded_url"`
+
 ### Root
 
 `/` - Basic information about the relay.
@@ -126,7 +122,7 @@ curl http://localhost:8080/
         {"rel": "add-feed", "href": "/feeds/", "method": "POST"},
         {"rel": "get-mentions", "href": "/mentions/?feed={url feed}", "method": "GET"},
         {"rel": "get-replies", "href": "/replies/?post={url post}", "method": "GET"},
-        {"rel": "search", "href": "/search?/q={query}", "method": "GET"},
+        {"rel": "search", "href": "/search/?q={query}", "method": "GET"},
         {"rel": "list-groups", "href": "/groups/", "method": "GET"},
         {"rel": "get-group-messages", "href": "/groups/{group id}/", "method": "GET"},
         {"rel": "register-group-member", "href": "/groups/{group id}/members/?feed={url feed}", "method": "POST"},
@@ -179,7 +175,11 @@ curl -X POST http://localhost:8080/feeds/ -d '{"feed": "https://example.com/path
 `/mentions/?feed={url feed}` - Get mentions for a given feed. Results are ordered from most recent to oldest.
 
 ```sh
-curl http://localhost:8080/mentions/?feed=https://example.com/social.org
+# URL must be encoded when passed as query parameter
+curl "http://localhost:8080/mentions/?feed=https%3A%2F%2Fexample.com%2Fsocial.org"
+
+# Or use curl's --data-urlencode for automatic encoding:
+curl -G "http://localhost:8080/mentions/" --data-urlencode "feed=https://example.com/social.org"
 ```
 
 ```json
@@ -206,7 +206,11 @@ The `version` in the `meta` field is a unique identifier for the current state o
 `/replies/?post={url post}` - Get replies for a given post. This will return a tree structure with all the replies to posts in the given feed. If you want to see the entire tree, you must use the meta `parent` as a  `post`.
 
 ```sh
-curl http://localhost:8080/replies/?post=https://foo.org/social.org#2025-02-03T23:05:00+0100
+# URL must be encoded when passed as query parameter
+curl "http://localhost:8080/replies/?post=https%3A%2F%2Ffoo.org%2Fsocial.org%232025-02-03T23%3A05%3A00%2B0100"
+
+# Or use curl's --data-urlencode for automatic encoding:
+curl -G "http://localhost:8080/replies/" --data-urlencode "post=https://foo.org/social.org#2025-02-03T23:05:00+0100"
 ```
 
 ```json
@@ -253,7 +257,7 @@ The `version` in the `meta` field is a unique identifier for the current state o
 `/search/?tag={tag}` - Search posts by tag.
 
 ```sh
-curl http://localhost:8080/search?q=emacs
+curl http://localhost:8080/search/?q=emacs
 ```
 
 Optional parameters:
@@ -279,7 +283,7 @@ Optional parameters:
         "hasNext": true,
         "hasPrevious": false,
         "links": {
-            "next": "/search?q=example&page=2",
+            "next": "/search/?q=example&page=2",
             "previous": null
         }
     }
@@ -324,7 +328,11 @@ curl http://localhost:8080/groups/
 `/groups/{group id}/members/?feed={url feed}` - Register a feed as a member of a group.
 
 ```sh
-curl -X POST "http://localhost:8080/groups/1/members/?feed=https://example.com/social.org"
+# URL must be encoded when passed as query parameter
+curl -X POST "http://localhost:8080/groups/1/members/?feed=https%3A%2F%2Fexample.com%2Fsocial.org"
+
+# Or use curl's --data-urlencode for automatic encoding:
+curl -X POST -G "http://localhost:8080/groups/1/members/" --data-urlencode "feed=https://example.com/social.org"
 ```
 
 ```json
@@ -406,7 +414,11 @@ The `version` in the `meta` field is a unique identifier for the current state o
 `/polls/votes/?post={url post}` - Get votes for a specific poll.
 
 ```sh
-curl http://localhost:8080/polls/votes/?post=https://foo.org/social.org#2025-02-03T23:05:00+0100
+# URL must be encoded when passed as query parameter
+curl "http://localhost:8080/polls/votes/?post=https%3A%2F%2Ffoo.org%2Fsocial.org%232025-02-03T23%3A05%3A00%2B0100"
+
+# Or use curl's --data-urlencode for automatic encoding:
+curl -G "http://localhost:8080/polls/votes/" --data-urlencode "post=https://foo.org/social.org#2025-02-03T23:05:00+0100"
 ```
 
 ```json
@@ -499,7 +511,7 @@ The groups endpoints will only be available when groups are configured via the `
 
 You can find the public Relay list in `https://cdn.jsdelivr.net/gh/tanrax/org-social/org-social-relay-list.txt`.
 
-### Cron
+### Crons
 
 #### Scan feeds
 
