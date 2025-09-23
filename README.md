@@ -122,19 +122,25 @@ curl http://localhost:8080/
 
 ```json
 {
-    "_links": [
-        {"rel": "self", "href": "/", "method": "GET"},
-        {"rel": "list-feeds", "href": "/feeds/", "method": "GET"},
-        {"rel": "add-feed", "href": "/feeds/", "method": "POST"},
-        {"rel": "get-mentions", "href": "/mentions/?feed={url feed}", "method": "GET"},
-        {"rel": "get-replies", "href": "/replies/?post={url post}", "method": "GET"},
-        {"rel": "search", "href": "/search/?q={query}", "method": "GET"},
-        {"rel": "list-groups", "href": "/groups/", "method": "GET"},
-        {"rel": "get-group-messages", "href": "/groups/{group_name}/", "method": "GET"},
-        {"rel": "register-group-member", "href": "/groups/{group_name}/members/?feed={url feed}", "method": "POST"},
-        {"rel": "list-polls", "href": "/polls/", "method": "GET"},
-        {"rel": "get-poll-votes", "href": "/polls/votes/?post={url post}", "method": "GET"}
-    ]
+    "type": "Success",
+    "errors": [],
+    "data": {
+        "name": "Org Social Relay",
+        "description": "P2P system for Org Social files"
+    },
+    "_links": {
+        "self": {"href": "/", "method": "GET"},
+        "feeds": {"href": "/feeds/", "method": "GET"},
+        "add-feed": {"href": "/feeds/", "method": "POST"},
+        "mentions": {"href": "/mentions/?feed={feed_url}", "method": "GET", "templated": true},
+        "replies": {"href": "/replies/?post={post_url}", "method": "GET", "templated": true},
+        "search": {"href": "/search/?q={query}", "method": "GET", "templated": true},
+        "groups": {"href": "/groups/", "method": "GET"},
+        "group-messages": {"href": "/groups/{group_name}/", "method": "GET", "templated": true},
+        "join-group": {"href": "/groups/{group_name}/members/?feed={feed_url}", "method": "POST", "templated": true},
+        "polls": {"href": "/polls/", "method": "GET"},
+        "poll-votes": {"href": "/polls/votes/?post={post_url}", "method": "GET", "templated": true}
+    }
 }
 ```
 
@@ -153,7 +159,11 @@ curl http://localhost:8080/feeds/
     "data": [
         "https://example.com/social.org",
         "https://another-example.com/social.org"
-    ]
+    ],
+    "_links": {
+        "self": {"href": "/feeds/", "method": "GET"},
+        "add": {"href": "/feeds/", "method": "POST"}
+    }
 }
 ```
 
@@ -201,6 +211,9 @@ curl -G "http://localhost:8080/mentions/" --data-urlencode "feed=https://example
         "feed": "https://example.com/social.org",
         "total": 3,
         "version": "123"
+    },
+    "_links": {
+        "self": {"href": "/mentions/?feed=https%3A%2F%2Fexample.com%2Fsocial.org", "method": "GET"}
     }
 }
 ```
@@ -251,6 +264,9 @@ curl -G "http://localhost:8080/replies/" --data-urlencode "post=https://foo.org/
     "meta": {
         "parent": "https://moo.org/social.org#2025-02-03T23:05:00+0100",
         "version": "123"
+    },
+    "_links": {
+        "self": {"href": "/replies/?post=https%3A%2F%2Ffoo.org%2Fsocial.org%232025-02-03T23%3A05%3A00%2B0100", "method": "GET"}
     }
 }
 ```
@@ -287,11 +303,12 @@ Optional parameters:
         "page": 1,
         "perPage": 10,
         "hasNext": true,
-        "hasPrevious": false,
-        "links": {
-            "next": "/search/?q=example&page=2",
-            "previous": null
-        }
+        "hasPrevious": false
+    },
+    "_links": {
+        "self": {"href": "/search/?q=example&page=1", "method": "GET"},
+        "next": {"href": "/search/?q=example&page=2", "method": "GET"},
+        "previous": null
     }
 }
 ```
@@ -314,7 +331,35 @@ curl http://localhost:8080/groups/
         "emacs",
         "org-mode",
         "programming"
-    ]
+    ],
+    "_links": {
+        "self": {
+            "href": "/groups/",
+            "method": "GET"
+        },
+        "groups": [
+            {
+                "name": "emacs",
+                "href": "/groups/emacs/",
+                "method": "GET"
+            },
+            {
+                "name": "org-mode",
+                "href": "/groups/org-mode/",
+                "method": "GET"
+            },
+            {
+                "name": "programming",
+                "href": "/groups/programming/",
+                "method": "GET"
+            }
+        ],
+        "join": {
+            "href": "/groups/{group_name}/members/?feed={feed_url}",
+            "method": "POST",
+            "templated": true
+        }
+    }
 }
 ```
 
@@ -385,6 +430,11 @@ curl http://localhost:8080/groups/emacs/
             "https://charlie.org/social.org"
         ],
         "version": "123"
+    },
+    "_links": {
+        "self": {"href": "/groups/emacs/", "method": "GET"},
+        "group-list": {"href": "/groups/", "method": "GET"},
+        "join": {"href": "/groups/emacs/members/?feed={feed_url}", "method": "POST", "templated": true}
     }
 }
 ```
@@ -411,6 +461,10 @@ curl http://localhost:8080/polls/
     "meta": {
         "total": 3,
         "version": "123"
+    },
+    "_links": {
+        "self": {"href": "/polls/", "method": "GET"},
+        "votes": {"href": "/polls/votes/?post={post_url}", "method": "GET", "templated": true}
     }
 }
 ```
@@ -462,6 +516,10 @@ curl -G "http://localhost:8080/polls/votes/" --data-urlencode "post=https://foo.
         "poll": "https://foo.org/social.org#2025-02-03T23:05:00+0100",
         "total_votes": 4,
         "version": "123"
+    },
+    "_links": {
+        "self": {"href": "/polls/votes/?post=https%3A%2F%2Ffoo.org%2Fsocial.org%232025-02-03T23%3A05%3A00%2B0100", "method": "GET"},
+        "polls": {"href": "/polls/", "method": "GET"}
     }
 }
 ```
