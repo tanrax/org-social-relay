@@ -55,6 +55,12 @@ graph TD
 - Perform searches (tags and full text).
 - Participate in groups.
 
+## Concepts
+
+- **List nodes**: Index of public nodes. Simple list with all the URLs of the Nodes (`https://cdn.jsdelivr.net/gh/tanrax/org-social/org-social-relay-list.txt`). It will be used by nodes to find other nodes and share information.
+- **Node**: A server running Org Social Relay (this software). It scans the network and shares information with other nodes or clients.
+- **Client**: An application that connects to a Node to get information. It can be Org Social or any other application that implements the Org Social Relay API.
+
 ## Installation
 
 You need to have Docker and Docker Compose installed.
