@@ -59,7 +59,6 @@ INSTALLED_APPS = [
     "app.mentions.apps.MentionsConfig",
     "app.search.apps.SearchConfig",
     "app.groups.apps.GroupsConfig",
-    # "app.notifications",
 ]
 
 MIDDLEWARE = [
