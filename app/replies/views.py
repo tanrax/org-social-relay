@@ -65,9 +65,11 @@ class RepliesView(APIView):
         original_post_url = f"{feed_url}#{post_id}"
 
         # First get direct replies
-        direct_replies = list(Post.objects.filter(reply_to=original_post_url)
-                             .select_related("profile")
-                             .order_by("created_at"))
+        direct_replies = list(
+            Post.objects.filter(reply_to=original_post_url)
+            .select_related("profile")
+            .order_by("created_at")
+        )
 
         # Then get all nested replies recursively
         all_replies = list(direct_replies)
@@ -78,9 +80,11 @@ class RepliesView(APIView):
             next_level = []
             for reply in current_level:
                 reply_url = f"{reply.profile.feed}#{reply.post_id}"
-                nested_replies = list(Post.objects.filter(reply_to=reply_url)
-                                     .select_related("profile")
-                                     .order_by("created_at"))
+                nested_replies = list(
+                    Post.objects.filter(reply_to=reply_url)
+                    .select_related("profile")
+                    .order_by("created_at")
+                )
                 all_replies.extend(nested_replies)
                 next_level.extend(nested_replies)
             current_level = next_level
@@ -94,6 +98,11 @@ class RepliesView(APIView):
         version_string = f"{original_post.updated_at.isoformat()}_{len(replies)}"
         version = hashlib.md5(version_string.encode()).hexdigest()[:8]
 
+        # URL encode the post_url for the self link
+        from urllib.parse import quote
+
+        encoded_post_url = quote(post_url, safe="")
+
         response_data = {
             "type": "Success",
             "errors": [],
@@ -101,6 +110,9 @@ class RepliesView(APIView):
             "meta": {
                 "parent": original_post_url,
                 "version": version,
+            },
+            "_links": {
+                "self": {"href": f"/replies/?post={encoded_post_url}", "method": "GET"}
             },
         }
 
@@ -119,8 +131,7 @@ class RepliesView(APIView):
 
         # Find direct replies to the parent
         direct_replies = [
-            reply for reply in all_replies
-            if reply.reply_to == parent_url
+            reply for reply in all_replies if reply.reply_to == parent_url
         ]
 
         result = []
@@ -130,10 +141,7 @@ class RepliesView(APIView):
             # Recursively find children of this reply
             children = self._find_children(reply_url, all_replies)
 
-            reply_node = {
-                "post": reply_url,
-                "children": children
-            }
+            reply_node = {"post": reply_url, "children": children}
             result.append(reply_node)
 
         return result
@@ -149,10 +157,7 @@ class RepliesView(APIView):
                 # Recursively find children of this reply
                 grandchildren = self._find_children(reply_url, all_replies)
 
-                child_node = {
-                    "post": reply_url,
-                    "children": grandchildren
-                }
+                child_node = {"post": reply_url, "children": grandchildren}
                 children.append(child_node)
 
         return children

@@ -65,11 +65,19 @@ class MentionsView(APIView):
         version_string = f"{profile.last_updated.isoformat()}_{len(mentions_data)}"
         version = hashlib.md5(version_string.encode()).hexdigest()[:8]
 
+        # URL encode the feed_url for the self link
+        from urllib.parse import quote
+
+        encoded_feed_url = quote(feed_url, safe="")
+
         response_data = {
             "type": "Success",
             "errors": [],
             "data": mentions_data,
             "meta": {"feed": feed_url, "total": len(mentions_data), "version": version},
+            "_links": {
+                "self": {"href": f"/mentions/?feed={encoded_feed_url}", "method": "GET"}
+            },
         }
 
         # Cache for 5 minutes (300 seconds)

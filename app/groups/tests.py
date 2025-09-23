@@ -330,7 +330,9 @@ class GroupsIntegrationTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["data"]), 1)
         # Check that we have a post from the feed we registered
-        self.assertIn("https://example.com/social.org#", response.data["data"][0]["post"])
+        self.assertIn(
+            "https://example.com/social.org#", response.data["data"][0]["post"]
+        )
 
         # Step 5: Verify groups list still works
         response = self.client.get("/groups/")

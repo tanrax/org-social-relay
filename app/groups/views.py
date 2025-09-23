@@ -29,11 +29,27 @@ class GroupsView(APIView):
         # Simple group list - just the group names
         groups_data = list(settings.ENABLED_GROUPS)
 
+        # Build individual group links
+        group_links = []
+        for group_name in settings.ENABLED_GROUPS:
+            group_links.append(
+                {"name": group_name, "href": f"/groups/{group_name}/", "method": "GET"}
+            )
+
         return Response(
             {
                 "type": "Success",
                 "errors": [],
                 "data": groups_data,
+                "_links": {
+                    "self": {"href": "/groups/", "method": "GET"},
+                    "groups": group_links,
+                    "join": {
+                        "href": "/groups/{group_name}/members/?feed={feed_url}",
+                        "method": "POST",
+                        "templated": True,
+                    },
+                },
             },
             status=status.HTTP_200_OK,
         )
@@ -193,6 +209,11 @@ class GroupMessagesView(APIView):
         version_string = "".join(sorted([p["post"] for p in messages_tree]))
         version = hashlib.sha256(version_string.encode()).hexdigest()[:8]
 
+        # URL encode the group_name for the join link template
+        from urllib.parse import quote
+
+        encoded_group_name = quote(group_name, safe="")
+
         response_data = {
             "type": "Success",
             "errors": [],
@@ -201,6 +222,15 @@ class GroupMessagesView(APIView):
                 "group": group_name,
                 "members": members_list,
                 "version": version,
+            },
+            "_links": {
+                "self": {"href": f"/groups/{encoded_group_name}/", "method": "GET"},
+                "group-list": {"href": "/groups/", "method": "GET"},
+                "join": {
+                    "href": f"/groups/{encoded_group_name}/members/?feed={{feed_url}}",
+                    "method": "POST",
+                    "templated": True,
+                },
             },
         }
 

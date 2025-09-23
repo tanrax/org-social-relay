@@ -20,7 +20,15 @@ class FeedsView(APIView):
 
         if cached_feeds is not None:
             return Response(
-                {"type": "Success", "errors": [], "data": cached_feeds},
+                {
+                    "type": "Success",
+                    "errors": [],
+                    "data": cached_feeds,
+                    "_links": {
+                        "self": {"href": "/feeds/", "method": "GET"},
+                        "add": {"href": "/feeds/", "method": "POST"},
+                    },
+                },
                 status=status.HTTP_200_OK,
             )
 
@@ -31,7 +39,15 @@ class FeedsView(APIView):
         cache.set(cache_key, feeds, 300)
 
         return Response(
-            {"type": "Success", "errors": [], "data": feeds},
+            {
+                "type": "Success",
+                "errors": [],
+                "data": feeds,
+                "_links": {
+                    "self": {"href": "/feeds/", "method": "GET"},
+                    "add": {"href": "/feeds/", "method": "POST"},
+                },
+            },
             status=status.HTTP_200_OK,
         )
 
@@ -91,5 +107,3 @@ class FeedsView(APIView):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-
-

@@ -130,8 +130,15 @@ class SearchViewTest(TestCase):
         data = response.data["data"]
         self.assertEqual(len(data), 4)
         # Check that all returned posts contain python-related content
-        expected_posts = [self.post7, self.post6, self.post3, self.post2]  # Most recent first
-        expected_urls = [f"{post.profile.feed}#{post.post_id}" for post in expected_posts]
+        expected_posts = [
+            self.post7,
+            self.post6,
+            self.post3,
+            self.post2,
+        ]  # Most recent first
+        expected_urls = [
+            f"{post.profile.feed}#{post.post_id}" for post in expected_posts
+        ]
         self.assertEqual(data, expected_urls)
 
         # Then: Meta should contain tag information
@@ -144,7 +151,9 @@ class SearchViewTest(TestCase):
         # Given: Multiple posts and small page size
 
         # When: We search with perPage=2 and page=1 for content that appears in multiple posts
-        response = self.client.get(self.search_url, {"q": "Python", "perPage": 2, "page": 1})
+        response = self.client.get(
+            self.search_url, {"q": "Python", "perPage": 2, "page": 1}
+        )
 
         # Then: We should get first 2 results
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -157,11 +166,16 @@ class SearchViewTest(TestCase):
         self.assertEqual(meta["perPage"], 2)
         self.assertTrue(meta["hasNext"])
         self.assertFalse(meta["hasPrevious"])
-        self.assertIsNotNone(meta["links"]["next"])
-        self.assertIsNone(meta["links"]["previous"])
+
+        # Check _links instead of meta.links
+        links = response.data["_links"]
+        self.assertIsNotNone(links["next"])
+        self.assertIsNone(links["previous"])
 
         # When: We request page 2
-        response2 = self.client.get(self.search_url, {"q": "Python", "perPage": 2, "page": 2})
+        response2 = self.client.get(
+            self.search_url, {"q": "Python", "perPage": 2, "page": 2}
+        )
 
         # Then: We should get next 2 results
         self.assertEqual(response2.status_code, status.HTTP_200_OK)
@@ -263,9 +277,22 @@ class SearchViewTest(TestCase):
 
         # Then: Meta should contain all required fields
         meta = response.data["meta"]
-        required_fields = ["version", "query", "total", "page", "perPage", "hasNext", "hasPrevious", "links"]
-        for field in required_fields:
+        required_meta_fields = [
+            "version",
+            "query",
+            "total",
+            "page",
+            "perPage",
+            "hasNext",
+            "hasPrevious",
+        ]
+        for field in required_meta_fields:
             self.assertIn(field, meta)
+
+        # Check that _links exists
+        self.assertIn("_links", response.data)
+        links = response.data["_links"]
+        self.assertIn("self", links)
 
     def test_search_view_methods_allowed(self):
         """Test that only GET method is allowed on search endpoint."""
@@ -281,7 +308,9 @@ class SearchViewTest(TestCase):
         # Then: Unsupported methods should return 405
         self.assertEqual(post_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
         self.assertEqual(put_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
-        self.assertEqual(delete_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertEqual(
+            delete_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED
+        )
         self.assertEqual(patch_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
     def test_search_url_generation(self):
@@ -289,16 +318,17 @@ class SearchViewTest(TestCase):
         # Given: Search with pagination
 
         # When: We search with specific parameters
-        response = self.client.get(self.search_url, {"q": "post", "perPage": 2, "page": 1})
+        response = self.client.get(
+            self.search_url, {"q": "post", "perPage": 2, "page": 1}
+        )
 
         # Then: Links should be properly formatted
-        meta = response.data["meta"]
-        links = meta["links"]
+        links = response.data["_links"]
 
         if links["next"]:
-            self.assertIn("q=post", links["next"])
-            self.assertIn("perPage=2", links["next"])
-            self.assertIn("page=2", links["next"])
+            self.assertIn("q=post", links["next"]["href"])
+            self.assertIn("perPage=2", links["next"]["href"])
+            self.assertIn("page=2", links["next"]["href"])
 
     def test_search_both_content_and_tags(self):
         """Test that search looks in both content and tags fields."""

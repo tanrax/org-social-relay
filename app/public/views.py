@@ -5,38 +5,48 @@ def root_view(request):
     """Root endpoint with HATEOAS links"""
     return JsonResponse(
         {
-            "_links": [
-                {"rel": "self", "href": "/", "method": "GET"},
-                {"rel": "list-feeds", "href": "/feeds/", "method": "GET"},
-                {"rel": "add-feed", "href": "/feeds/", "method": "POST"},
-                {
-                    "rel": "get-mentions",
-                    "href": "/mentions/?feed={url feed}",
+            "type": "Success",
+            "errors": [],
+            "data": {
+                "name": "Org Social Relay",
+                "description": "P2P system for Org Social files",
+            },
+            "_links": {
+                "self": {"href": "/", "method": "GET"},
+                "feeds": {"href": "/feeds/", "method": "GET"},
+                "add-feed": {"href": "/feeds/", "method": "POST"},
+                "mentions": {
+                    "href": "/mentions/?feed={feed_url}",
                     "method": "GET",
+                    "templated": True,
                 },
-                {
-                    "rel": "get-replies",
-                    "href": "/replies/?post={url post}",
+                "replies": {
+                    "href": "/replies/?post={post_url}",
                     "method": "GET",
+                    "templated": True,
                 },
-                {"rel": "search", "href": "/search/?q={query}", "method": "GET"},
-                {"rel": "list-groups", "href": "/groups/", "method": "GET"},
-                {
-                    "rel": "get-group-messages",
-                    "href": "/groups/{group id}/messages/",
+                "search": {
+                    "href": "/search/?q={query}",
                     "method": "GET",
+                    "templated": True,
                 },
-                {
-                    "rel": "register-group-member",
-                    "href": "/groups/{group id}/members/?feed={url feed}",
+                "groups": {"href": "/groups/", "method": "GET"},
+                "group-messages": {
+                    "href": "/groups/{group_name}/",
+                    "method": "GET",
+                    "templated": True,
+                },
+                "join-group": {
+                    "href": "/groups/{group_name}/members/?feed={feed_url}",
                     "method": "POST",
+                    "templated": True,
                 },
-                {"rel": "list-polls", "href": "/polls/", "method": "GET"},
-                {
-                    "rel": "get-poll-votes",
-                    "href": "/polls/votes/?post={url post}",
+                "polls": {"href": "/polls/", "method": "GET"},
+                "poll-votes": {
+                    "href": "/polls/votes/?post={post_url}",
                     "method": "GET",
+                    "templated": True,
                 },
-            ]
+            },
         }
     )

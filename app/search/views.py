@@ -76,7 +76,9 @@ class SearchView(APIView):
             return Response(
                 {
                     "type": "Error",
-                    "errors": [f"Page {page} does not exist. Maximum page is {paginator.num_pages}"],
+                    "errors": [
+                        f"Page {page} does not exist. Maximum page is {paginator.num_pages}"
+                    ],
                     "data": None,
                 },
                 status=status.HTTP_400_BAD_REQUEST,
@@ -100,11 +102,6 @@ class SearchView(APIView):
         if per_page != 10:
             base_url += f"&perPage={per_page}"
 
-        links = {
-            "next": f"{base_url}&page={page + 1}" if posts_page.has_next() else None,
-            "previous": f"{base_url}&page={page - 1}" if posts_page.has_previous() else None,
-        }
-
         # Generate version hash based on search parameters and total results
         version_string = f"{search_term}_{total_posts}_{posts_query.first().updated_at.isoformat() if posts_query.exists() else 'empty'}"
         version = hashlib.md5(version_string.encode()).hexdigest()[:8]
@@ -122,7 +119,15 @@ class SearchView(APIView):
                 "perPage": per_page,
                 "hasNext": posts_page.has_next(),
                 "hasPrevious": posts_page.has_previous(),
-                "links": links,
+            },
+            "_links": {
+                "self": {"href": f"{base_url}&page={page}", "method": "GET"},
+                "next": {"href": f"{base_url}&page={page + 1}", "method": "GET"}
+                if posts_page.has_next()
+                else None,
+                "previous": {"href": f"{base_url}&page={page - 1}", "method": "GET"}
+                if posts_page.has_previous()
+                else None,
             },
         }
 

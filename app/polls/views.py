@@ -63,6 +63,14 @@ class PollsView(APIView):
                 "total": len(polls_data),
                 "version": version,
             },
+            "_links": {
+                "self": {"href": "/polls/", "method": "GET"},
+                "votes": {
+                    "href": "/polls/votes/?post={post_url}",
+                    "method": "GET",
+                    "templated": True,
+                },
+            },
         }
 
         # Cache for 5 minutes
@@ -292,6 +300,11 @@ class PollVotesView(APIView):
         version_string = f"{poll_post.updated_at.isoformat()}_{total_votes}"
         version = hashlib.md5(version_string.encode()).hexdigest()[:8]
 
+        # URL encode the post_url for the self link
+        from urllib.parse import quote
+
+        encoded_post_url = quote(post_url, safe="")
+
         response_data = {
             "type": "Success",
             "errors": [],
@@ -300,6 +313,13 @@ class PollVotesView(APIView):
                 "poll": f"{poll_feed}#{poll_id}",
                 "total_votes": total_votes,
                 "version": version,
+            },
+            "_links": {
+                "self": {
+                    "href": f"/polls/votes/?post={encoded_post_url}",
+                    "method": "GET",
+                },
+                "polls": {"href": "/polls/", "method": "GET"},
             },
         }
 
