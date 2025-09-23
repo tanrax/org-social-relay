@@ -135,7 +135,9 @@ class RepliesViewTest(TestCase):
                 break
 
         self.assertIsNotNone(nested_reply_with_child)
-        self.assertEqual(len(nested_reply_with_child["children"]), 1)  # 1 deep nested reply
+        self.assertEqual(
+            len(nested_reply_with_child["children"]), 1
+        )  # 1 deep nested reply
 
     def test_get_replies_nonexistent_post(self):
         """Test GET /replies/ returns 404 for nonexistent post."""
@@ -154,7 +156,9 @@ class RepliesViewTest(TestCase):
     def test_get_replies_nonexistent_profile(self):
         """Test GET /replies/ returns 404 for nonexistent profile."""
         # Given: A profile feed that doesn't exist
-        nonexistent_post_url = f"https://nonexistent.com/social.org#{self.original_post.post_id}"
+        nonexistent_post_url = (
+            f"https://nonexistent.com/social.org#{self.original_post.post_id}"
+        )
 
         # When: We request replies for post from nonexistent profile
         response = self.client.get(self.replies_url, {"post": nonexistent_post_url})
@@ -229,7 +233,9 @@ class RepliesViewTest(TestCase):
         # Then: Unsupported methods should return 405
         self.assertEqual(post_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
         self.assertEqual(put_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
-        self.assertEqual(delete_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertEqual(
+            delete_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED
+        )
         self.assertEqual(patch_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
     def test_replies_missing_parameters(self):

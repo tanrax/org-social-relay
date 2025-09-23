@@ -173,5 +173,7 @@ class MentionsViewTest(TestCase):
         # Then: Unsupported methods should return 405
         self.assertEqual(post_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
         self.assertEqual(put_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
-        self.assertEqual(delete_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertEqual(
+            delete_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED
+        )
         self.assertEqual(patch_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
