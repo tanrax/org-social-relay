@@ -130,8 +130,8 @@ curl http://localhost:8080/
         {"rel": "get-replies", "href": "/replies/?post={url post}", "method": "GET"},
         {"rel": "search", "href": "/search/?q={query}", "method": "GET"},
         {"rel": "list-groups", "href": "/groups/", "method": "GET"},
-        {"rel": "get-group-messages", "href": "/groups/{group id}/", "method": "GET"},
-        {"rel": "register-group-member", "href": "/groups/{group id}/members/?feed={url feed}", "method": "POST"},
+        {"rel": "get-group-messages", "href": "/groups/{group_name}/", "method": "GET"},
+        {"rel": "register-group-member", "href": "/groups/{group_name}/members/?feed={url feed}", "method": "POST"},
         {"rel": "list-polls", "href": "/polls/", "method": "GET"},
         {"rel": "get-poll-votes", "href": "/polls/votes/?post={url post}", "method": "GET"}
     ]
@@ -311,34 +311,32 @@ curl http://localhost:8080/groups/
     "type": "Success",
     "errors": [],
     "data": [
-        {
-            "id": 1,
-            "name": "emacs",
-            "description": "A group for Emacs enthusiasts.",
-            "members": 120,
-            "posts": 450
-        },
-        {
-            "id": 2,
-            "name": "org-mode",
-            "description": "Discuss everything about Org mode.",
-            "members": 200,
-            "posts": 800
-        }
+        "emacs",
+        "org-mode",
+        "programming"
     ]
+}
+```
+
+**Example with no groups configured:**
+```json
+{
+    "type": "Error",
+    "errors": ["No groups configured in this relay"],
+    "data": []
 }
 ```
 
 ### Register as group member
 
-`/groups/{group id}/members/?feed={url feed}` - Register a feed as a member of a group.
+`/groups/{group_name}/members/?feed={url feed}` - Register a feed as a member of a group.
 
 ```sh
 # URL must be encoded when passed as query parameter
-curl -X POST "http://localhost:8080/groups/1/members/?feed=https%3A%2F%2Fexample.com%2Fsocial.org"
+curl -X POST "http://localhost:8080/groups/emacs/members/?feed=https%3A%2F%2Fexample.com%2Fsocial.org"
 
 # Or use curl's --data-urlencode for automatic encoding:
-curl -X POST -G "http://localhost:8080/groups/1/members/" --data-urlencode "feed=https://example.com/social.org"
+curl -X POST -G "http://localhost:8080/groups/emacs/members/" --data-urlencode "feed=https://example.com/social.org"
 ```
 
 ```json
@@ -354,10 +352,10 @@ curl -X POST -G "http://localhost:8080/groups/1/members/" --data-urlencode "feed
 
 ### Get group messages
 
-`/groups/{group id}/` - Get messages from a group.
+`/groups/{group_name}/` - Get messages from a group.
 
 ```sh
-curl http://localhost:8080/groups/1/
+curl http://localhost:8080/groups/emacs/
 ```
 
 ```json
@@ -381,7 +379,11 @@ curl http://localhost:8080/groups/1/
     ],
     "meta": {
         "group": "emacs",
-        "total": 2,
+        "members": [
+            "https://alice.org/social.org",
+            "https://bob.org/social.org",
+            "https://charlie.org/social.org"
+        ],
         "version": "123"
     }
 }

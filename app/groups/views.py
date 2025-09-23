@@ -26,23 +26,8 @@ class GroupsView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Build group list with stats
-        groups_data = []
-        for idx, group_name in enumerate(settings.ENABLED_GROUPS, start=1):
-            # Get member count
-            member_count = GroupMember.objects.filter(group_name=group_name).count()
-
-            # Get post count (posts from members of this group)
-            # TODO: When group field is added to Post model, filter by group
-            post_count = 0  # Placeholder until group field is added to Post model
-
-            groups_data.append({
-                "id": idx,
-                "name": group_name,
-                "description": f"A group for {group_name} enthusiasts.",
-                "members": member_count,
-                "posts": post_count,
-            })
+        # Simple group list - just the group names
+        groups_data = list(settings.ENABLED_GROUPS)
 
         return Response(
             {
@@ -57,19 +42,14 @@ class GroupsView(APIView):
 class GroupMembersView(APIView):
     """Register feeds as members of groups."""
 
-    def post(self, request, group_id):
-        """POST /groups/{group_id}/members/?feed={url} - Register a feed as a member."""
-        # Validate group_id
-        try:
-            group_id = int(group_id)
-            if group_id < 1 or group_id > len(settings.ENABLED_GROUPS):
-                raise ValueError()
-            group_name = settings.ENABLED_GROUPS[group_id - 1]
-        except (ValueError, IndexError):
+    def post(self, request, group_name):
+        """POST /groups/{group_name}/members/?feed={url} - Register a feed as a member."""
+        # Validate group_name
+        if group_name not in settings.ENABLED_GROUPS:
             return Response(
                 {
                     "type": "Error",
-                    "errors": [f"Group with ID {group_id} does not exist"],
+                    "errors": [f"Group '{group_name}' does not exist"],
                     "data": {},
                 },
                 status=status.HTTP_404_NOT_FOUND,
@@ -129,19 +109,14 @@ class GroupMembersView(APIView):
 class GroupMessagesView(APIView):
     """Get messages from a group."""
 
-    def get(self, request, group_id):
-        """GET /groups/{group_id}/ - Get messages from a group."""
-        # Validate group_id
-        try:
-            group_id = int(group_id)
-            if group_id < 1 or group_id > len(settings.ENABLED_GROUPS):
-                raise ValueError()
-            group_name = settings.ENABLED_GROUPS[group_id - 1]
-        except (ValueError, IndexError):
+    def get(self, request, group_name):
+        """GET /groups/{group_name}/ - Get messages from a group."""
+        # Validate group_name
+        if group_name not in settings.ENABLED_GROUPS:
             return Response(
                 {
                     "type": "Error",
-                    "errors": [f"Group with ID {group_id} does not exist"],
+                    "errors": [f"Group '{group_name}' does not exist"],
                     "data": [],
                     "meta": {},
                 },
@@ -157,10 +132,14 @@ class GroupMessagesView(APIView):
 
         # Get all posts from members of this group
         # TODO: When group field is added to Post model, filter by group
-        group_members = GroupMember.objects.filter(group_name=group_name).values_list('profile_id', flat=True)
-        group_posts = Post.objects.filter(
-            profile_id__in=group_members
-        ).select_related('profile').order_by('-created_at')
+        group_members = GroupMember.objects.filter(group_name=group_name).values_list(
+            "profile_id", flat=True
+        )
+        group_posts = (
+            Post.objects.filter(profile_id__in=group_members)
+            .select_related("profile")
+            .order_by("-created_at")
+        )
 
         # Build tree structure for messages (similar to replies)
         messages_tree = []
@@ -181,22 +160,34 @@ class GroupMessagesView(APIView):
                 # This is a reply, add it to parent's children
                 parent_url = post_data["reply_to"]
                 if parent_url in posts_dict:
-                    posts_dict[parent_url]["children"].append({
-                        "post": post_url,
-                        "children": post_data["children"],
-                    })
+                    posts_dict[parent_url]["children"].append(
+                        {
+                            "post": post_url,
+                            "children": post_data["children"],
+                        }
+                    )
                 else:
                     # Parent not in group, add as top-level
-                    messages_tree.append({
-                        "post": post_url,
-                        "children": post_data["children"],
-                    })
+                    messages_tree.append(
+                        {
+                            "post": post_url,
+                            "children": post_data["children"],
+                        }
+                    )
             else:
                 # Top-level post
-                messages_tree.append({
-                    "post": post_url,
-                    "children": post_data["children"],
-                })
+                messages_tree.append(
+                    {
+                        "post": post_url,
+                        "children": post_data["children"],
+                    }
+                )
+
+        # Get group members
+        group_members = GroupMember.objects.filter(
+            group_name=group_name
+        ).select_related("profile")
+        members_list = [member.profile.feed for member in group_members]
 
         # Generate version hash
         version_string = "".join(sorted([p["post"] for p in messages_tree]))
@@ -208,7 +199,7 @@ class GroupMessagesView(APIView):
             "data": messages_tree,
             "meta": {
                 "group": group_name,
-                "total": len(messages_tree),
+                "members": members_list,
                 "version": version,
             },
         }

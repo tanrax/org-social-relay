@@ -29,71 +29,30 @@ class GroupsViewTest(TestCase):
     @override_settings(ENABLED_GROUPS=["emacs", "org-social", "python"])
     def test_list_groups_success(self):
         """Test GET /groups/ returns configured groups."""
-        # Given: Groups configured and some members/posts
-        profile1 = Profile.objects.create(
-            feed="https://example.com/social.org",
-            nick="user1"
-        )
-        profile2 = Profile.objects.create(
-            feed="https://test.com/social.org",
-            nick="user2"
-        )
-
-        # Add members to groups
-        GroupMember.objects.create(group_name="emacs", profile=profile1)
-        GroupMember.objects.create(group_name="emacs", profile=profile2)
-        GroupMember.objects.create(group_name="python", profile=profile1)
-
-        # Create posts (group association would be through membership now)
-        Post.objects.create(
-            profile=profile1,
-            post_id="2025-01-01T12:00:00+00:00",
-            content="Emacs post"
-        )
-        Post.objects.create(
-            profile=profile2,
-            post_id="2025-01-01T13:00:00+00:00",
-            content="Python post"
-        )
+        # Given: Groups configured
 
         # When: We request groups list
         response = self.client.get(self.groups_url)
 
-        # Then: Should return success with group data
+        # Then: Should return success with group names
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["type"], "Success")
         self.assertEqual(len(response.data["data"]), 3)
-
-        # Check first group (emacs)
-        emacs_group = response.data["data"][0]
-        self.assertEqual(emacs_group["id"], 1)
-        self.assertEqual(emacs_group["name"], "emacs")
-        self.assertEqual(emacs_group["members"], 2)
-        self.assertEqual(emacs_group["posts"], 0)  # Posts count not implemented yet
-
-        # Check third group (python)
-        python_group = response.data["data"][2]
-        self.assertEqual(python_group["id"], 3)
-        self.assertEqual(python_group["name"], "python")
-        self.assertEqual(python_group["members"], 1)
-        self.assertEqual(python_group["posts"], 0)  # Posts count not implemented yet
+        self.assertEqual(response.data["data"], ["emacs", "org-social", "python"])
 
     @override_settings(ENABLED_GROUPS=["emacs", "org-social"])
     def test_list_groups_empty_groups(self):
-        """Test GET /groups/ when groups have no members or posts."""
-        # Given: Groups configured but no members or posts
+        """Test GET /groups/ when groups are configured."""
+        # Given: Groups configured
 
         # When: We request groups list
         response = self.client.get(self.groups_url)
 
-        # Then: Should return groups with zero counts
+        # Then: Should return group names
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["type"], "Success")
         self.assertEqual(len(response.data["data"]), 2)
-
-        for group in response.data["data"]:
-            self.assertEqual(group["members"], 0)
-            self.assertEqual(group["posts"], 0)
+        self.assertEqual(response.data["data"], ["emacs", "org-social"])
 
 
 class GroupMembersViewTest(TestCase):
@@ -110,8 +69,7 @@ class GroupMembersViewTest(TestCase):
 
         # When: We register the feed as a member
         response = self.client.post(
-            "/groups/1/members/",
-            QUERY_STRING=f"feed={feed_url}"
+            "/groups/emacs/members/", QUERY_STRING=f"feed={feed_url}"
         )
 
         # Then: Should return success
@@ -123,8 +81,7 @@ class GroupMembersViewTest(TestCase):
         # Verify membership was created
         self.assertTrue(
             GroupMember.objects.filter(
-                group_name="emacs",
-                profile__feed=feed_url
+                group_name="emacs", profile__feed=feed_url
             ).exists()
         )
 
@@ -138,8 +95,7 @@ class GroupMembersViewTest(TestCase):
 
         # When: We try to register again
         response = self.client.post(
-            "/groups/1/members/",
-            QUERY_STRING=f"feed={feed_url}"
+            "/groups/emacs/members/", QUERY_STRING=f"feed={feed_url}"
         )
 
         # Then: Should return success with message
@@ -153,10 +109,9 @@ class GroupMembersViewTest(TestCase):
         # Given: An invalid group ID
         feed_url = "https://example.com/social.org"
 
-        # When: We try to register with invalid group ID
+        # When: We try to register with invalid group name
         response = self.client.post(
-            "/groups/999/members/",
-            QUERY_STRING=f"feed={feed_url}"
+            "/groups/invalid-group/members/", QUERY_STRING=f"feed={feed_url}"
         )
 
         # Then: Should return 404
@@ -170,7 +125,7 @@ class GroupMembersViewTest(TestCase):
         # Given: No feed parameter
 
         # When: We try to register without feed
-        response = self.client.post("/groups/1/members/")
+        response = self.client.post("/groups/emacs/members/")
 
         # Then: Should return 400
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -186,8 +141,7 @@ class GroupMembersViewTest(TestCase):
 
         # When: We register with encoded URL
         response = self.client.post(
-            "/groups/1/members/",
-            QUERY_STRING=f"feed={encoded_url}"
+            "/groups/emacs/members/", QUERY_STRING=f"feed={encoded_url}"
         )
 
         # Then: Should decode and register successfully
@@ -203,12 +157,10 @@ class GroupMessagesViewTest(TestCase):
 
         # Create test profiles
         self.profile1 = Profile.objects.create(
-            feed="https://example.com/social.org",
-            nick="user1"
+            feed="https://example.com/social.org", nick="user1"
         )
         self.profile2 = Profile.objects.create(
-            feed="https://test.com/social.org",
-            nick="user2"
+            feed="https://test.com/social.org", nick="user2"
         )
 
     @override_settings(ENABLED_GROUPS=["emacs", "python"])
@@ -222,23 +174,25 @@ class GroupMessagesViewTest(TestCase):
         Post.objects.create(
             profile=self.profile1,
             post_id="2025-01-01T12:00:00+00:00",
-            content="First emacs post"
+            content="First emacs post",
         )
         Post.objects.create(
             profile=self.profile2,
             post_id="2025-01-01T13:00:00+00:00",
-            content="Second emacs post"
+            content="Second emacs post",
         )
         # Post from non-member (should not appear)
-        other_profile = Profile.objects.create(feed="https://other.com/social.org", nick="other")
+        other_profile = Profile.objects.create(
+            feed="https://other.com/social.org", nick="other"
+        )
         Post.objects.create(
             profile=other_profile,
             post_id="2025-01-01T14:00:00+00:00",
-            content="Other post"
+            content="Other post",
         )
 
         # When: We request emacs group messages
-        response = self.client.get("/groups/1/")
+        response = self.client.get("/groups/emacs/")
 
         # Then: Should return only emacs posts
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -247,7 +201,7 @@ class GroupMessagesViewTest(TestCase):
 
         # Check meta
         self.assertEqual(response.data["meta"]["group"], "emacs")
-        self.assertEqual(response.data["meta"]["total"], 2)
+        self.assertIn("members", response.data["meta"])
         self.assertIn("version", response.data["meta"])
 
     @override_settings(ENABLED_GROUPS=["emacs"])
@@ -260,17 +214,17 @@ class GroupMessagesViewTest(TestCase):
         post1 = Post.objects.create(
             profile=self.profile1,
             post_id="2025-01-01T12:00:00+00:00",
-            content="Original post"
+            content="Original post",
         )
         Post.objects.create(
             profile=self.profile2,
             post_id="2025-01-01T13:00:00+00:00",
             content="Reply to post1",
-            reply_to=f"{self.profile1.feed}#{post1.post_id}"
+            reply_to=f"{self.profile1.feed}#{post1.post_id}",
         )
 
         # When: We request group messages
-        response = self.client.get("/groups/1/")
+        response = self.client.get("/groups/emacs/")
 
         # Then: Should return tree structure
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -294,13 +248,13 @@ class GroupMessagesViewTest(TestCase):
         # Given: No posts in group
 
         # When: We request group messages
-        response = self.client.get("/groups/1/")
+        response = self.client.get("/groups/emacs/")
 
         # Then: Should return empty data
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["type"], "Success")
         self.assertEqual(response.data["data"], [])
-        self.assertEqual(response.data["meta"]["total"], 0)
+        self.assertEqual(len(response.data["data"]), 0)
 
     @override_settings(ENABLED_GROUPS=["emacs"])
     def test_get_group_messages_invalid_group(self):
@@ -308,7 +262,7 @@ class GroupMessagesViewTest(TestCase):
         # Given: Invalid group ID
 
         # When: We request invalid group
-        response = self.client.get("/groups/999/")
+        response = self.client.get("/groups/invalid-group/")
 
         # Then: Should return 404
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -323,12 +277,12 @@ class GroupMessagesViewTest(TestCase):
         Post.objects.create(
             profile=self.profile1,
             post_id="2025-01-01T12:00:00+00:00",
-            content="Test post"
+            content="Test post",
         )
 
         # When: We request group messages twice
-        response1 = self.client.get("/groups/1/")
-        response2 = self.client.get("/groups/1/")
+        response1 = self.client.get("/groups/emacs/")
+        response2 = self.client.get("/groups/emacs/")
 
         # Then: Both should succeed
         self.assertEqual(response1.status_code, status.HTTP_200_OK)
@@ -336,8 +290,7 @@ class GroupMessagesViewTest(TestCase):
 
         # And version should be the same (indicating cache hit)
         self.assertEqual(
-            response1.data["meta"]["version"],
-            response2.data["meta"]["version"]
+            response1.data["meta"]["version"], response2.data["meta"]["version"]
         )
 
 
@@ -360,8 +313,7 @@ class GroupsIntegrationTest(TestCase):
 
         # Step 2: Join emacs group
         response = self.client.post(
-            "/groups/1/members/",
-            QUERY_STRING=f"feed={feed_url}"
+            "/groups/emacs/members/", QUERY_STRING=f"feed={feed_url}"
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
@@ -370,20 +322,20 @@ class GroupsIntegrationTest(TestCase):
         Post.objects.create(
             profile=profile,
             post_id="2025-01-01T12:00:00+00:00",
-            content="My emacs config"
+            content="My emacs config",
         )
 
         # Step 4: Retrieve group messages
-        response = self.client.get("/groups/1/")
+        response = self.client.get("/groups/emacs/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["data"]), 1)
-        self.assertIn("My emacs config", str(response.data))
+        # Check that we have a post from the feed we registered
+        self.assertIn("https://example.com/social.org#", response.data["data"][0]["post"])
 
-        # Step 5: Verify group stats updated
+        # Step 5: Verify groups list still works
         response = self.client.get("/groups/")
-        emacs_group = response.data["data"][0]
-        self.assertEqual(emacs_group["members"], 1)
-        self.assertEqual(emacs_group["posts"], 0)  # Posts count not implemented yet
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("emacs", response.data["data"])
 
     @override_settings(ENABLED_GROUPS=[])
     def test_groups_disabled(self):
