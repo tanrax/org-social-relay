@@ -242,23 +242,56 @@ curl -G "http://localhost:8080/replies/" --data-urlencode "post=https://foo.org/
             "children": [
                 {
                     "post": "https://baz.org/social.org#2025-02-03T09:45:00+0100",
-                    "children": []
+                    "children": [],
+                    "moods": [
+                        {
+                            "emoji": "❤",
+                            "posts": [
+                                "https://alice.org/social.org#2025-02-03T10:00:00+0100"
+                            ]
+                        },
+                        {
+                            "emoji": "👍",
+                            "posts": [
+                                "https://bob.org/social.org#2025-02-03T10:15:00+0100",
+                                "https://charlie.org/social.org#2025-02-03T10:30:00+0100"
+                            ]
+                        }
+                    ]
                 },
                 {
                     "post": "https://qux.org/social.org#2025-02-04T16:20:00+0100",
                     "children": [
                         {
                             "post": "https://quux.org/social.org#2025-02-05T11:10:00+0100",
-                            "children": []
+                            "children": [],
+                            "moods": []
+                        }
+                    ],
+                    "moods": [
+                        {
+                            "emoji": "🚀",
+                            "posts": [
+                                "https://diana.org/social.org#2025-02-04T17:00:00+0100"
+                            ]
                         }
                     ]
                 }
 
+            ],
+            "moods": [
+                {
+                    "emoji": "⭐",
+                    "posts": [
+                        "https://eve.org/social.org#2025-02-02T15:00:00+0100"
+                    ]
+                }
             ]
         },
         {
             "post": "https://corge.org/social.org#2025-02-03T18:00:00+0100",
-            "children": []
+            "children": [],
+            "moods": []
         }
     ],
     "meta": {

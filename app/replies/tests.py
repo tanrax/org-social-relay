@@ -217,7 +217,9 @@ class RepliesViewTest(TestCase):
         for reply_tree in data:
             self.assertIn("post", reply_tree)
             self.assertIn("children", reply_tree)
+            self.assertIn("moods", reply_tree)
             self.assertIsInstance(reply_tree["children"], list)
+            self.assertIsInstance(reply_tree["moods"], list)
 
     def test_replies_view_methods_allowed(self):
         """Test that only GET method is allowed on replies endpoint."""
@@ -261,3 +263,111 @@ class RepliesViewTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data["type"], "Error")
         self.assertIn("Invalid post URL format", response.data["errors"][0])
+
+    def test_replies_with_moods(self):
+        """Test replies with mood reactions are properly included."""
+        # Given: An original post
+        original_post = Post.objects.create(
+            profile=self.profile1,
+            post_id="2025-01-02T12:00:00+00:00",
+            content="Original post for mood testing"
+        )
+
+        # And: A regular reply
+        regular_reply = Post.objects.create(
+            profile=self.profile2,
+            post_id="2025-01-02T13:00:00+00:00",
+            content="This is a regular reply",
+            reply_to=f"{self.profile1.feed}#{original_post.post_id}"
+        )
+
+        # And: Mood reactions (empty content + mood + reply_to)
+        Post.objects.create(
+            profile=self.profile2,
+            post_id="2025-01-02T13:30:00+00:00",
+            content="",  # Empty content for mood reaction
+            mood="❤",
+            reply_to=f"{self.profile1.feed}#{original_post.post_id}"
+        )
+
+        thumbs_up_reaction = Post.objects.create(
+            profile=self.profile1,
+            post_id="2025-01-02T14:00:00+00:00",
+            content="   ",  # Whitespace content for mood reaction
+            mood="👍",
+            reply_to=f"{self.profile2.feed}#{regular_reply.post_id}"
+        )
+
+        rocket_reaction = Post.objects.create(
+            profile=self.profile2,
+            post_id="2025-01-02T14:30:00+00:00",
+            content="",
+            mood="🚀",
+            reply_to=f"{self.profile2.feed}#{regular_reply.post_id}"
+        )
+
+        # When: We request replies for the original post
+        post_url = f"{self.profile1.feed}#{original_post.post_id}"
+        response = self.client.get(self.replies_url, {"post": post_url})
+
+        # Then: Should return success with moods included
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.data["data"]
+
+        # Should have 1 regular reply
+        self.assertEqual(len(data), 1)
+
+        reply_tree = data[0]
+        self.assertEqual(reply_tree["post"], f"{self.profile2.feed}#{regular_reply.post_id}")
+
+        # Regular reply should have moods (👍 and 🚀)
+        self.assertIn("moods", reply_tree)
+        moods = reply_tree["moods"]
+        self.assertEqual(len(moods), 2)
+
+        # Check moods are correctly grouped
+        mood_emojis = [mood["emoji"] for mood in moods]
+        self.assertIn("👍", mood_emojis)
+        self.assertIn("🚀", mood_emojis)
+
+        # Check posts for each mood
+        thumbs_mood = next(mood for mood in moods if mood["emoji"] == "👍")
+        rocket_mood = next(mood for mood in moods if mood["emoji"] == "🚀")
+
+        self.assertEqual(len(thumbs_mood["posts"]), 1)
+        self.assertEqual(len(rocket_mood["posts"]), 1)
+        self.assertIn(f"{self.profile1.feed}#{thumbs_up_reaction.post_id}", thumbs_mood["posts"])
+        self.assertIn(f"{self.profile2.feed}#{rocket_reaction.post_id}", rocket_mood["posts"])
+
+    def test_replies_format_with_moods(self):
+        """Test that all replies include moods field even when empty."""
+        # Given: A separate original post for this test
+        original_post_for_moods = Post.objects.create(
+            profile=self.profile1,
+            post_id="2025-01-03T12:00:00+00:00",
+            content="Original post for moods format test"
+        )
+
+        # And: A simple reply without any mood reactions
+        Post.objects.create(
+            profile=self.profile2,
+            post_id="2025-01-03T13:00:00+00:00",
+            content="Simple reply without reactions",
+            reply_to=f"{self.profile1.feed}#{original_post_for_moods.post_id}"
+        )
+
+        # When: We request replies
+        post_url = f"{self.profile1.feed}#{original_post_for_moods.post_id}"
+        response = self.client.get(self.replies_url, {"post": post_url})
+
+        # Then: All replies should have moods field
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.data["data"]
+
+        self.assertEqual(len(data), 1)
+        reply_tree = data[0]
+
+        # Should have moods field even if empty
+        self.assertIn("moods", reply_tree)
+        self.assertIsInstance(reply_tree["moods"], list)
+        self.assertEqual(len(reply_tree["moods"]), 0)
