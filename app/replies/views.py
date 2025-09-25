@@ -122,16 +122,17 @@ class RepliesView(APIView):
         return Response(response_data, status=status.HTTP_200_OK)
 
     def _build_replies_tree(self, all_replies, parent_url):
-        """Build a tree structure of replies"""
+        """Build a tree structure of replies with moods"""
         # Create a map of all posts by their URL
         posts_map = {}
         for reply in all_replies:
             reply_url = f"{reply.profile.feed}#{reply.post_id}"
             posts_map[reply_url] = reply
 
-        # Find direct replies to the parent
+        # Find direct replies to the parent (exclude mood reactions)
         direct_replies = [
-            reply for reply in all_replies if reply.reply_to == parent_url
+            reply for reply in all_replies
+            if reply.reply_to == parent_url and not (reply.mood and not reply.content.strip())
         ]
 
         result = []
@@ -141,7 +142,14 @@ class RepliesView(APIView):
             # Recursively find children of this reply
             children = self._find_children(reply_url, all_replies)
 
-            reply_node = {"post": reply_url, "children": children}
+            # Find moods for this reply
+            moods = self._find_moods(reply_url, all_replies)
+
+            reply_node = {
+                "post": reply_url,
+                "children": children,
+                "moods": moods
+            }
             result.append(reply_node)
 
         return result
@@ -151,13 +159,45 @@ class RepliesView(APIView):
         children = []
 
         for reply in all_replies:
-            if reply.reply_to == parent_url:
+            # Exclude mood reactions from children (they're not regular replies)
+            if reply.reply_to == parent_url and not (reply.mood and not reply.content.strip()):
                 reply_url = f"{reply.profile.feed}#{reply.post_id}"
 
                 # Recursively find children of this reply
                 grandchildren = self._find_children(reply_url, all_replies)
 
-                child_node = {"post": reply_url, "children": grandchildren}
+                # Find moods for this child
+                moods = self._find_moods(reply_url, all_replies)
+
+                child_node = {
+                    "post": reply_url,
+                    "children": grandchildren,
+                    "moods": moods
+                }
                 children.append(child_node)
 
         return children
+
+    def _find_moods(self, target_url, all_replies):
+        """Find mood reactions for a specific post"""
+        moods_dict = {}
+
+        for reply in all_replies:
+            # A mood reaction is a reply with mood and empty/whitespace content
+            if (reply.reply_to == target_url and reply.mood and not reply.content.strip()):
+                emoji = reply.mood
+                reply_url = f"{reply.profile.feed}#{reply.post_id}"
+
+                if emoji not in moods_dict:
+                    moods_dict[emoji] = []
+                moods_dict[emoji].append(reply_url)
+
+        # Convert to the desired format: list of {emoji, posts}
+        moods_list = []
+        for emoji, posts in moods_dict.items():
+            moods_list.append({
+                "emoji": emoji,
+                "posts": posts
+            })
+
+        return moods_list
