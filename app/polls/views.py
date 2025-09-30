@@ -73,8 +73,8 @@ class PollsView(APIView):
             },
         }
 
-        # Cache for 5 minutes
-        cache.set(cache_key, response_data["data"], 300)
+        # Cache permanently (will be cleared by scan_feeds task)
+        cache.set(cache_key, response_data["data"], None)
 
         return Response(response_data, status=status.HTTP_200_OK)
 
@@ -138,8 +138,8 @@ class PollsView(APIView):
             },
         }
 
-        # Cache for 5 minutes
-        cache.set(cache_key, response_data, 300)
+        # Cache permanently (will be cleared by scan_feeds task)
+        cache.set(cache_key, response_data, None)
 
         return Response(response_data, status=status.HTTP_200_OK)
 
@@ -199,8 +199,8 @@ class PollsView(APIView):
             },
         }
 
-        # Cache for 5 minutes
-        cache.set(cache_key, response_data, 300)
+        # Cache permanently (will be cleared by scan_feeds task)
+        cache.set(cache_key, response_data, None)
 
         return Response(response_data, status=status.HTTP_200_OK)
 
@@ -323,7 +323,7 @@ class PollVotesView(APIView):
             },
         }
 
-        # Cache for 2 minutes (shorter cache for vote results)
-        cache.set(cache_key, response_data, 120)
+        # Cache permanently (will be cleared by scan_feeds task)
+        cache.set(cache_key, response_data, None)
 
         return Response(response_data, status=status.HTTP_200_OK)

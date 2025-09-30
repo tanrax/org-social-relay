@@ -7,7 +7,7 @@ import hashlib
 logger = logging.getLogger(__name__)
 
 
-@periodic_task(crontab(hour="*"))  # Run every hour
+@periodic_task(crontab(hour="*/3"))  # Run every 3 hours
 def discover_feeds_from_relay_nodes():
     """
     Periodic task to discover new feeds from other Org Social Relay nodes.
@@ -47,7 +47,7 @@ def discover_feeds_from_relay_nodes():
 
         try:
             # Fetch the list
-            response = requests.get(source["url"], timeout=10)
+            response = requests.get(source["url"], timeout=5)
             response.raise_for_status()
 
             # The file might be empty or contain one URL per line
@@ -126,7 +126,7 @@ def discover_feeds_from_relay_nodes():
 
                         # Call the /feeds endpoint on each relay node
                         feeds_url = f"{node_url}/feeds"
-                        feeds_response = requests.get(feeds_url, timeout=15)
+                        feeds_response = requests.get(feeds_url, timeout=10)
                         feeds_response.raise_for_status()
 
                         feeds_data = feeds_response.json()
@@ -343,17 +343,25 @@ def discover_new_feeds_from_follows():
     )
 
 
-@periodic_task(crontab(minute="*/10"))  # Run every 10 minutes
+@periodic_task(crontab(minute="*"))  # Run every minute
 def scan_feeds():
     """
     Periodic task to scan all registered feeds for new posts and profile updates.
 
     This task:
-    1. Gets all registered feeds from the database
-    2. For each feed, fetches and parses the content
-    3. Creates or updates Profile data with version control
-    4. Creates or updates Posts with their properties
-    5. Manages relationships (follows, contacts, links)
+    1. Clears the cache so next requests after scan will get fresh data
+    2. Gets all registered feeds from the database
+    3. For each feed, fetches and parses the content
+    4. Creates or updates Profile data with version control
+    5. Creates or updates Posts with their properties
+    6. Manages relationships (follows, contacts, links)
+
+    Note: Cache is cleared AFTER scanning so that:
+    - During scan: users get old cached data (complete and consistent, even if outdated)
+    - After scan: cache is cleared and next requests get fresh data from database
+
+    This ensures data consistency: users either see complete old data or complete new data,
+    never a mix of both during the scanning process.
     """
     import django
 
@@ -607,3 +615,11 @@ def scan_feeds():
         f"Posts created: {posts_created}, "
         f"Posts updated: {posts_updated}"
     )
+
+    # Clear cache AFTER scanning to ensure next requests get fresh data
+    # This way during scan users see complete old cached data (consistent),
+    # and after scan they see complete new data (also consistent)
+    from django.core.cache import cache
+
+    cache.clear()
+    logger.info("Cache cleared after feed scanning - next requests will get fresh data")

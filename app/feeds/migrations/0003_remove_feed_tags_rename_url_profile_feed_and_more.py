@@ -5,33 +5,38 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('feeds', '0002_tag_feed'),
+        ("feeds", "0002_tag_feed"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='feed',
-            name='tags',
+            model_name="feed",
+            name="tags",
         ),
         migrations.RenameField(
-            model_name='profile',
-            old_name='url',
-            new_name='feed',
+            model_name="profile",
+            old_name="url",
+            new_name="feed",
         ),
         migrations.AddField(
-            model_name='feed',
-            name='created_at',
-            field=models.DateTimeField(auto_now_add=True, default=django.utils.timezone.now),
+            model_name="feed",
+            name="created_at",
+            field=models.DateTimeField(
+                auto_now_add=True, default=django.utils.timezone.now
+            ),
             preserve_default=False,
         ),
         migrations.AddField(
-            model_name='profile',
-            name='version',
-            field=models.CharField(blank=True, help_text='Version identifier for tracking changes (hash of content)', max_length=50),
+            model_name="profile",
+            name="version",
+            field=models.CharField(
+                blank=True,
+                help_text="Version identifier for tracking changes (hash of content)",
+                max_length=50,
+            ),
         ),
         migrations.DeleteModel(
-            name='Tag',
+            name="Tag",
         ),
     ]

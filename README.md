@@ -614,12 +614,14 @@ You can find the public Relay list in `https://cdn.jsdelivr.net/gh/tanrax/org-so
 
 #### Scan feeds
 
-Every 10 minutes, Relay will scan all registered feeds for new posts.
+**Every minute**, Relay will scan all registered feeds for new posts, mentions, replies, polls, and profile updates. After each scan, the cache is automatically cleared to ensure all endpoints return fresh data.
+
+During the scan, users continue to see cached data (complete and consistent, even if slightly outdated). Once the scan completes and cache is cleared, the next request will fetch fresh data from the database.
 
 #### Scan other nodes
 
-Every hour, Relay will search for new users on other nodes.
+Every 3 hours, Relay will search for new users on other nodes.
 
 #### Discover new feeds
 
-Every day, Relay analyzes the feeds of all registered users to discover new feeds they follow.
+Every day at midnight, Relay analyzes the feeds of all registered users to discover new feeds they follow.

@@ -116,8 +116,8 @@ class RepliesView(APIView):
             },
         }
 
-        # Cache for 5 minutes
-        cache.set(cache_key, response_data, 300)
+        # Cache permanently (will be cleared by scan_feeds task)
+        cache.set(cache_key, response_data, None)
 
         return Response(response_data, status=status.HTTP_200_OK)
 
@@ -131,8 +131,10 @@ class RepliesView(APIView):
 
         # Find direct replies to the parent (exclude mood reactions)
         direct_replies = [
-            reply for reply in all_replies
-            if reply.reply_to == parent_url and not (reply.mood and not reply.content.strip())
+            reply
+            for reply in all_replies
+            if reply.reply_to == parent_url
+            and not (reply.mood and not reply.content.strip())
         ]
 
         result = []
@@ -145,11 +147,7 @@ class RepliesView(APIView):
             # Find moods for this reply
             moods = self._find_moods(reply_url, all_replies)
 
-            reply_node = {
-                "post": reply_url,
-                "children": children,
-                "moods": moods
-            }
+            reply_node = {"post": reply_url, "children": children, "moods": moods}
             result.append(reply_node)
 
         return result
@@ -160,7 +158,9 @@ class RepliesView(APIView):
 
         for reply in all_replies:
             # Exclude mood reactions from children (they're not regular replies)
-            if reply.reply_to == parent_url and not (reply.mood and not reply.content.strip()):
+            if reply.reply_to == parent_url and not (
+                reply.mood and not reply.content.strip()
+            ):
                 reply_url = f"{reply.profile.feed}#{reply.post_id}"
 
                 # Recursively find children of this reply
@@ -172,7 +172,7 @@ class RepliesView(APIView):
                 child_node = {
                     "post": reply_url,
                     "children": grandchildren,
-                    "moods": moods
+                    "moods": moods,
                 }
                 children.append(child_node)
 
@@ -184,7 +184,11 @@ class RepliesView(APIView):
 
         for reply in all_replies:
             # A mood reaction is a reply with mood and empty/whitespace content
-            if (reply.reply_to == target_url and reply.mood and not reply.content.strip()):
+            if (
+                reply.reply_to == target_url
+                and reply.mood
+                and not reply.content.strip()
+            ):
                 emoji = reply.mood
                 reply_url = f"{reply.profile.feed}#{reply.post_id}"
 
@@ -195,9 +199,6 @@ class RepliesView(APIView):
         # Convert to the desired format: list of {emoji, posts}
         moods_list = []
         for emoji, posts in moods_dict.items():
-            moods_list.append({
-                "emoji": emoji,
-                "posts": posts
-            })
+            moods_list.append({"emoji": emoji, "posts": posts})
 
         return moods_list

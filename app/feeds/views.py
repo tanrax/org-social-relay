@@ -35,8 +35,8 @@ class FeedsView(APIView):
         # If not in cache, query database
         feeds = list(Feed.objects.all().values_list("url", flat=True))
 
-        # Cache for 5 minutes (300 seconds)
-        cache.set(cache_key, feeds, 300)
+        # Cache permanently (will be cleared by scan_feeds task)
+        cache.set(cache_key, feeds, None)
 
         return Response(
             {
