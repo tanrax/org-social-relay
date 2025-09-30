@@ -131,7 +131,7 @@ class SearchView(APIView):
             },
         }
 
-        # Cache for 10 minutes
-        cache.set(cache_key, response_data, 600)
+        # Cache permanently (will be cleared by scan_feeds task)
+        cache.set(cache_key, response_data, None)
 
         return Response(response_data, status=status.HTTP_200_OK)

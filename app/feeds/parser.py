@@ -14,7 +14,7 @@ def parse_org_social(url: str) -> Dict[str, Any]:
         Dictionary containing parsed metadata and posts
     """
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=5)
         response.raise_for_status()
         content = response.text
     except requests.RequestException as e:
@@ -264,7 +264,7 @@ def validate_org_social_feed(url: str) -> Tuple[bool, str]:
     """
     try:
         # Check if URL responds with 200
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=5)
         if response.status_code != 200:
             return False, f"URL returned status code {response.status_code}"
 

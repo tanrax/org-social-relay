@@ -234,7 +234,7 @@ class GroupMessagesView(APIView):
             },
         }
 
-        # Cache the response
-        cache.set(cache_key, response_data, timeout=300)  # 5 minutes
+        # Cache permanently (will be cleared by scan_feeds task)
+        cache.set(cache_key, response_data, timeout=None)
 
         return Response(response_data, status=status.HTTP_200_OK)

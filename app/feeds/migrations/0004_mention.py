@@ -5,24 +5,53 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('feeds', '0003_remove_feed_tags_rename_url_profile_feed_and_more'),
+        ("feeds", "0003_remove_feed_tags_rename_url_profile_feed_and_more"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Mention',
+            name="Mention",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('nickname', models.CharField(blank=True, help_text='Nickname used in the mention', max_length=100)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('mentioned_profile', models.ForeignKey(help_text='The profile that was mentioned', on_delete=django.db.models.deletion.CASCADE, related_name='incoming_mentions', to='feeds.profile')),
-                ('post', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='mentions', to='feeds.post')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "nickname",
+                    models.CharField(
+                        blank=True,
+                        help_text="Nickname used in the mention",
+                        max_length=100,
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "mentioned_profile",
+                    models.ForeignKey(
+                        help_text="The profile that was mentioned",
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="incoming_mentions",
+                        to="feeds.profile",
+                    ),
+                ),
+                (
+                    "post",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="mentions",
+                        to="feeds.post",
+                    ),
+                ),
             ],
             options={
-                'ordering': ['-created_at'],
-                'unique_together': {('post', 'mentioned_profile')},
+                "ordering": ["-created_at"],
+                "unique_together": {("post", "mentioned_profile")},
             },
         ),
     ]

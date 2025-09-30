@@ -5,26 +5,45 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
-        ('feeds', '0004_mention'),
+        ("feeds", "0004_mention"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='GroupMember',
+            name="GroupMember",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('group_name', models.CharField(db_index=True, max_length=100)),
-                ('joined_at', models.DateTimeField(auto_now_add=True)),
-                ('profile', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='group_memberships', to='feeds.profile')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("group_name", models.CharField(db_index=True, max_length=100)),
+                ("joined_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "profile",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="group_memberships",
+                        to="feeds.profile",
+                    ),
+                ),
             ],
             options={
-                'ordering': ['-joined_at'],
-                'indexes': [models.Index(fields=['group_name', '-joined_at'], name='groups_grou_group_n_f479e4_idx')],
-                'unique_together': {('group_name', 'profile')},
+                "ordering": ["-joined_at"],
+                "indexes": [
+                    models.Index(
+                        fields=["group_name", "-joined_at"],
+                        name="groups_grou_group_n_f479e4_idx",
+                    )
+                ],
+                "unique_together": {("group_name", "profile")},
             },
         ),
     ]

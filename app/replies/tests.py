@@ -270,7 +270,7 @@ class RepliesViewTest(TestCase):
         original_post = Post.objects.create(
             profile=self.profile1,
             post_id="2025-01-02T12:00:00+00:00",
-            content="Original post for mood testing"
+            content="Original post for mood testing",
         )
 
         # And: A regular reply
@@ -278,7 +278,7 @@ class RepliesViewTest(TestCase):
             profile=self.profile2,
             post_id="2025-01-02T13:00:00+00:00",
             content="This is a regular reply",
-            reply_to=f"{self.profile1.feed}#{original_post.post_id}"
+            reply_to=f"{self.profile1.feed}#{original_post.post_id}",
         )
 
         # And: Mood reactions (empty content + mood + reply_to)
@@ -287,7 +287,7 @@ class RepliesViewTest(TestCase):
             post_id="2025-01-02T13:30:00+00:00",
             content="",  # Empty content for mood reaction
             mood="❤",
-            reply_to=f"{self.profile1.feed}#{original_post.post_id}"
+            reply_to=f"{self.profile1.feed}#{original_post.post_id}",
         )
 
         thumbs_up_reaction = Post.objects.create(
@@ -295,7 +295,7 @@ class RepliesViewTest(TestCase):
             post_id="2025-01-02T14:00:00+00:00",
             content="   ",  # Whitespace content for mood reaction
             mood="👍",
-            reply_to=f"{self.profile2.feed}#{regular_reply.post_id}"
+            reply_to=f"{self.profile2.feed}#{regular_reply.post_id}",
         )
 
         rocket_reaction = Post.objects.create(
@@ -303,7 +303,7 @@ class RepliesViewTest(TestCase):
             post_id="2025-01-02T14:30:00+00:00",
             content="",
             mood="🚀",
-            reply_to=f"{self.profile2.feed}#{regular_reply.post_id}"
+            reply_to=f"{self.profile2.feed}#{regular_reply.post_id}",
         )
 
         # When: We request replies for the original post
@@ -318,7 +318,9 @@ class RepliesViewTest(TestCase):
         self.assertEqual(len(data), 1)
 
         reply_tree = data[0]
-        self.assertEqual(reply_tree["post"], f"{self.profile2.feed}#{regular_reply.post_id}")
+        self.assertEqual(
+            reply_tree["post"], f"{self.profile2.feed}#{regular_reply.post_id}"
+        )
 
         # Regular reply should have moods (👍 and 🚀)
         self.assertIn("moods", reply_tree)
@@ -336,8 +338,12 @@ class RepliesViewTest(TestCase):
 
         self.assertEqual(len(thumbs_mood["posts"]), 1)
         self.assertEqual(len(rocket_mood["posts"]), 1)
-        self.assertIn(f"{self.profile1.feed}#{thumbs_up_reaction.post_id}", thumbs_mood["posts"])
-        self.assertIn(f"{self.profile2.feed}#{rocket_reaction.post_id}", rocket_mood["posts"])
+        self.assertIn(
+            f"{self.profile1.feed}#{thumbs_up_reaction.post_id}", thumbs_mood["posts"]
+        )
+        self.assertIn(
+            f"{self.profile2.feed}#{rocket_reaction.post_id}", rocket_mood["posts"]
+        )
 
     def test_replies_format_with_moods(self):
         """Test that all replies include moods field even when empty."""
@@ -345,7 +351,7 @@ class RepliesViewTest(TestCase):
         original_post_for_moods = Post.objects.create(
             profile=self.profile1,
             post_id="2025-01-03T12:00:00+00:00",
-            content="Original post for moods format test"
+            content="Original post for moods format test",
         )
 
         # And: A simple reply without any mood reactions
@@ -353,7 +359,7 @@ class RepliesViewTest(TestCase):
             profile=self.profile2,
             post_id="2025-01-03T13:00:00+00:00",
             content="Simple reply without reactions",
-            reply_to=f"{self.profile1.feed}#{original_post_for_moods.post_id}"
+            reply_to=f"{self.profile1.feed}#{original_post_for_moods.post_id}",
         )
 
         # When: We request replies

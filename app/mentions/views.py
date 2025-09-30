@@ -80,7 +80,7 @@ class MentionsView(APIView):
             },
         }
 
-        # Cache for 5 minutes (300 seconds)
-        cache.set(cache_key, response_data, 300)
+        # Cache permanently (will be cleared by scan_feeds task)
+        cache.set(cache_key, response_data, None)
 
         return Response(response_data, status=status.HTTP_200_OK)
