@@ -318,3 +318,67 @@ This is the second paragraph with some text.
         self.assertIn("This is the second paragraph", post["content"])
         self.assertIn("- This is a list item", post["content"])
         self.assertIn("- Another list item", post["content"])
+
+    def test_parse_post_with_subsections(self):
+        """Test parsing posts with level 3+ org headings (subsections)."""
+        # Given: An org social content with posts containing *** and **** headings
+        content = """#+TITLE: Test
+#+NICK: test_user
+
+* Posts
+**
+:PROPERTIES:
+:ID: 2025-01-15T09:30:00+0100
+:LANG: en
+:TAGS: tutorial
+:END:
+
+Introduction to the topic
+
+*** Section 1: Getting Started
+This is content under a level 3 heading.
+
+**** Subsection 1.1: Installation
+Deep nested content under level 4 heading.
+
+*** Section 2: Advanced Usage
+More content under another level 3 heading.
+
+***** Even deeper
+Content with 5 asterisks.
+
+**
+:PROPERTIES:
+:ID: 2025-01-15T10:00:00+0100
+:END:
+
+Second post without subsections.
+"""
+
+        # When: We parse the content
+        from app.feeds.parser import parse_org_social_content
+
+        result = parse_org_social_content(content)
+
+        # Then: Should parse 2 posts correctly
+        self.assertEqual(len(result["posts"]), 2)
+
+        # First post should contain all subsection content
+        post1 = result["posts"][0]
+        self.assertEqual(post1["id"], "2025-01-15T09:30:00+0100")
+        self.assertIn("Introduction to the topic", post1["content"])
+        self.assertIn("*** Section 1: Getting Started", post1["content"])
+        self.assertIn("This is content under a level 3 heading", post1["content"])
+        self.assertIn("**** Subsection 1.1: Installation", post1["content"])
+        self.assertIn("Deep nested content under level 4 heading", post1["content"])
+        self.assertIn("*** Section 2: Advanced Usage", post1["content"])
+        self.assertIn("More content under another level 3 heading", post1["content"])
+        self.assertIn("***** Even deeper", post1["content"])
+        self.assertIn("Content with 5 asterisks", post1["content"])
+
+        # Second post should only contain its own content
+        post2 = result["posts"][1]
+        self.assertEqual(post2["id"], "2025-01-15T10:00:00+0100")
+        self.assertEqual(post2["content"], "Second post without subsections.")
+        self.assertNotIn("Section 1", post2["content"])
+        self.assertNotIn("Section 2", post2["content"])
