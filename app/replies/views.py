@@ -94,6 +94,9 @@ class RepliesView(APIView):
         # Build tree structure
         replies_tree = self._build_replies_tree(replies, original_post_url)
 
+        # Find moods for the original post
+        moods = self._find_moods(original_post_url, replies)
+
         # Generate version hash
         version_string = f"{original_post.updated_at.isoformat()}_{len(replies)}"
         version = hashlib.md5(version_string.encode()).hexdigest()[:8]
@@ -110,6 +113,7 @@ class RepliesView(APIView):
             "meta": {
                 "parent": original_post_url,
                 "version": version,
+                "moods": moods,
             },
             "_links": {
                 "self": {"href": f"/replies/?post={encoded_post_url}", "method": "GET"}
