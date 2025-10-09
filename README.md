@@ -137,7 +137,6 @@ curl http://localhost:8080/
         "search": {"href": "/search/?q={query}", "method": "GET", "templated": true},
         "groups": {"href": "/groups/", "method": "GET"},
         "group-messages": {"href": "/groups/{group_name}/", "method": "GET", "templated": true},
-        "join-group": {"href": "/groups/{group_name}/members/?feed={feed_url}", "method": "POST", "templated": true},
         "polls": {"href": "/polls/", "method": "GET"},
         "poll-votes": {"href": "/polls/votes/?post={post_url}", "method": "GET", "templated": true}
     }
@@ -386,12 +385,7 @@ curl http://localhost:8080/groups/
                 "href": "/groups/programming/",
                 "method": "GET"
             }
-        ],
-        "join": {
-            "href": "/groups/{group_name}/members/?feed={feed_url}",
-            "method": "POST",
-            "templated": true
-        }
+        ]
     }
 }
 ```
@@ -402,29 +396,6 @@ curl http://localhost:8080/groups/
     "type": "Error",
     "errors": ["No groups configured in this relay"],
     "data": []
-}
-```
-
-### Register as group member
-
-`/groups/{group_name}/members/?feed={url feed}` - Register a feed as a member of a group.
-
-```sh
-# URL must be encoded when passed as query parameter
-curl -X POST "http://localhost:8080/groups/emacs/members/?feed=https%3A%2F%2Fexample.com%2Fsocial.org"
-
-# Or use curl's --data-urlencode for automatic encoding:
-curl -X POST -G "http://localhost:8080/groups/emacs/members/" --data-urlencode "feed=https://example.com/social.org"
-```
-
-```json
-{
-    "type": "Success",
-    "errors": [],
-    "data": {
-        "group": "emacs",
-        "feed": "https://example.com/social.org"
-    }
 }
 ```
 
@@ -466,8 +437,7 @@ curl http://localhost:8080/groups/emacs/
     },
     "_links": {
         "self": {"href": "/groups/emacs/", "method": "GET"},
-        "group-list": {"href": "/groups/", "method": "GET"},
-        "join": {"href": "/groups/emacs/members/?feed={feed_url}", "method": "POST", "templated": true}
+        "group-list": {"href": "/groups/", "method": "GET"}
     }
 }
 ```
@@ -599,10 +569,9 @@ GROUPS=emacs,org-social,elisp
 ### Using Groups
 
 Once configured, users can:
-1. Join groups by registering their feeds as group members
-2. Post messages to specific groups
-3. View group-specific message threads
-4. Discover other group members
+1. View group-specific message threads
+2. Discover other group members
+3. Post messages to specific groups
 
 The groups endpoints will only be available when groups are configured via the `GROUPS` environment variable.
 
