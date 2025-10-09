@@ -4,15 +4,16 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('feeds', '0004_mention'),
+        ("feeds", "0004_mention"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='post',
-            name='group',
-            field=models.CharField(blank=True, help_text='Group name (GROUP property)', max_length=100),
+            model_name="post",
+            name="group",
+            field=models.CharField(
+                blank=True, help_text="Group name (GROUP property)", max_length=100
+            ),
         ),
     ]
