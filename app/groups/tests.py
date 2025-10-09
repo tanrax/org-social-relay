@@ -55,100 +55,6 @@ class GroupsViewTest(TestCase):
         self.assertEqual(response.data["data"], ["emacs", "org-social"])
 
 
-class GroupMembersViewTest(TestCase):
-    """Test cases for the GroupMembersView API."""
-
-    def setUp(self):
-        self.client = APIClient()
-
-    @override_settings(ENABLED_GROUPS=["emacs", "org-social", "python"])
-    def test_register_member_success(self):
-        """Test POST /groups/{id}/members/ registers a feed."""
-        # Given: A valid group ID and feed URL
-        feed_url = "https://example.com/social.org"
-
-        # When: We register the feed as a member
-        response = self.client.post(
-            "/groups/emacs/members/", QUERY_STRING=f"feed={feed_url}"
-        )
-
-        # Then: Should return success
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data["type"], "Success")
-        self.assertEqual(response.data["data"]["group"], "emacs")
-        self.assertEqual(response.data["data"]["feed"], feed_url)
-
-        # Verify membership was created
-        self.assertTrue(
-            GroupMember.objects.filter(
-                group_name="emacs", profile__feed=feed_url
-            ).exists()
-        )
-
-    @override_settings(ENABLED_GROUPS=["emacs", "org-social"])
-    def test_register_member_already_exists(self):
-        """Test registering an already registered member."""
-        # Given: A feed already registered in a group
-        feed_url = "https://example.com/social.org"
-        profile = Profile.objects.create(feed=feed_url)
-        GroupMember.objects.create(group_name="emacs", profile=profile)
-
-        # When: We try to register again
-        response = self.client.post(
-            "/groups/emacs/members/", QUERY_STRING=f"feed={feed_url}"
-        )
-
-        # Then: Should return success with message
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["type"], "Success")
-        self.assertIn("Already a member", response.data["data"]["message"])
-
-    @override_settings(ENABLED_GROUPS=["emacs"])
-    def test_register_member_invalid_group(self):
-        """Test registering with invalid group ID."""
-        # Given: An invalid group ID
-        feed_url = "https://example.com/social.org"
-
-        # When: We try to register with invalid group name
-        response = self.client.post(
-            "/groups/invalid-group/members/", QUERY_STRING=f"feed={feed_url}"
-        )
-
-        # Then: Should return 404
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(response.data["type"], "Error")
-        self.assertIn("does not exist", response.data["errors"][0])
-
-    @override_settings(ENABLED_GROUPS=["emacs"])
-    def test_register_member_missing_feed(self):
-        """Test registering without feed parameter."""
-        # Given: No feed parameter
-
-        # When: We try to register without feed
-        response = self.client.post("/groups/emacs/members/")
-
-        # Then: Should return 400
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data["type"], "Error")
-        self.assertIn("feed parameter is required", response.data["errors"][0])
-
-    @override_settings(ENABLED_GROUPS=["emacs", "org-social"])
-    def test_register_member_url_encoded(self):
-        """Test registering with URL-encoded feed."""
-        # Given: A URL-encoded feed
-        feed_url = "https://example.com/social.org"
-        encoded_url = "https%3A%2F%2Fexample.com%2Fsocial.org"
-
-        # When: We register with encoded URL
-        response = self.client.post(
-            "/groups/emacs/members/", QUERY_STRING=f"feed={encoded_url}"
-        )
-
-        # Then: Should decode and register successfully
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data["data"]["feed"], feed_url)
-
-
 class GroupMessagesViewTest(TestCase):
     """Test cases for the GroupMessagesView API."""
 
@@ -302,7 +208,7 @@ class GroupsIntegrationTest(TestCase):
 
     @override_settings(ENABLED_GROUPS=["emacs", "org-social", "python"])
     def test_full_group_workflow(self):
-        """Test complete group workflow: list, join, post, retrieve."""
+        """Test complete group workflow: list, create profile/post, retrieve."""
         # Given: Initial state
         feed_url = "https://example.com/social.org"
 
@@ -311,14 +217,11 @@ class GroupsIntegrationTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["data"]), 3)
 
-        # Step 2: Join emacs group
-        response = self.client.post(
-            "/groups/emacs/members/", QUERY_STRING=f"feed={feed_url}"
-        )
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        # Step 2: Create profile and join group (simulating what would happen via feed parsing)
+        profile = Profile.objects.create(feed=feed_url)
+        GroupMember.objects.create(group_name="emacs", profile=profile)
 
         # Step 3: Create posts in group (simulating what would happen via feed parsing)
-        profile = Profile.objects.get(feed=feed_url)
         Post.objects.create(
             profile=profile,
             post_id="2025-01-01T12:00:00+00:00",
