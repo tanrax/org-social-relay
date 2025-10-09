@@ -3,7 +3,6 @@ from rest_framework.test import APIClient
 from rest_framework import status
 
 from app.feeds.models import Profile, Post
-from app.groups.models import GroupMember
 
 
 class GroupsViewTest(TestCase):
@@ -73,21 +72,19 @@ class GroupMessagesViewTest(TestCase):
     def test_get_group_messages_success(self):
         """Test GET /groups/{id}/ returns group messages."""
         # Given: Posts with group metadata
-        # Join groups first
-        GroupMember.objects.create(group_name="emacs", profile=self.profile1)
-        GroupMember.objects.create(group_name="emacs", profile=self.profile2)
-
         Post.objects.create(
             profile=self.profile1,
             post_id="2025-01-01T12:00:00+00:00",
             content="First emacs post",
+            group="emacs",
         )
         Post.objects.create(
             profile=self.profile2,
             post_id="2025-01-01T13:00:00+00:00",
             content="Second emacs post",
+            group="emacs",
         )
-        # Post from non-member (should not appear)
+        # Post from non-emacs group (should not appear)
         other_profile = Profile.objects.create(
             feed="https://other.com/social.org", nick="other"
         )
@@ -95,6 +92,7 @@ class GroupMessagesViewTest(TestCase):
             profile=other_profile,
             post_id="2025-01-01T14:00:00+00:00",
             content="Other post",
+            group="python",
         )
 
         # When: We request emacs group messages
@@ -114,19 +112,18 @@ class GroupMessagesViewTest(TestCase):
     def test_get_group_messages_with_replies(self):
         """Test group messages with reply tree structure."""
         # Given: Posts with replies in group
-        GroupMember.objects.create(group_name="emacs", profile=self.profile1)
-        GroupMember.objects.create(group_name="emacs", profile=self.profile2)
-
         post1 = Post.objects.create(
             profile=self.profile1,
             post_id="2025-01-01T12:00:00+00:00",
             content="Original post",
+            group="emacs",
         )
         Post.objects.create(
             profile=self.profile2,
             post_id="2025-01-01T13:00:00+00:00",
             content="Reply to post1",
             reply_to=f"{self.profile1.feed}#{post1.post_id}",
+            group="emacs",
         )
 
         # When: We request group messages
@@ -178,12 +175,11 @@ class GroupMessagesViewTest(TestCase):
     def test_get_group_messages_caching(self):
         """Test that group messages are cached."""
         # Given: Posts in group
-        GroupMember.objects.create(group_name="emacs", profile=self.profile1)
-
         Post.objects.create(
             profile=self.profile1,
             post_id="2025-01-01T12:00:00+00:00",
             content="Test post",
+            group="emacs",
         )
 
         # When: We request group messages twice
@@ -217,15 +213,15 @@ class GroupsIntegrationTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["data"]), 3)
 
-        # Step 2: Create profile and join group (simulating what would happen via feed parsing)
+        # Step 2: Create profile (simulating what would happen via feed parsing)
         profile = Profile.objects.create(feed=feed_url)
-        GroupMember.objects.create(group_name="emacs", profile=profile)
 
         # Step 3: Create posts in group (simulating what would happen via feed parsing)
         Post.objects.create(
             profile=profile,
             post_id="2025-01-01T12:00:00+00:00",
             content="My emacs config",
+            group="emacs",
         )
 
         # Step 4: Retrieve group messages
