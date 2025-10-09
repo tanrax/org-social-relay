@@ -115,6 +115,9 @@ class Post(models.Model):
     mood = models.CharField(
         max_length=10, blank=True, help_text="Mood indicator (emoji)"
     )
+    group = models.CharField(
+        max_length=100, blank=True, help_text="Group name (GROUP property)"
+    )
 
     # Poll related fields
     poll_end = models.DateTimeField(

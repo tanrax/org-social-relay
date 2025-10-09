@@ -474,6 +474,15 @@ def scan_feeds():
                 content = post_data.get("content", "")
                 properties = post_data.get("properties", {})
 
+                # Extract group name from GROUP property
+                # Format: "emacs https://org-social-relay.andros.dev" or just "emacs"
+                group_metadata = properties.get("group", "").strip()
+                group_name = ""
+                if group_metadata:
+                    parts = group_metadata.split()
+                    if parts:
+                        group_name = parts[0].strip()
+
                 # Get or create post
                 post, post_created = Post.objects.get_or_create(
                     profile=profile,
@@ -485,6 +494,7 @@ def scan_feeds():
                         "client": properties.get("client", ""),
                         "reply_to": properties.get("reply_to", ""),
                         "mood": properties.get("mood", ""),
+                        "group": group_name,
                         "poll_end": None,
                     },
                 )
@@ -499,6 +509,7 @@ def scan_feeds():
                     post.client = properties.get("client", "")
                     post.reply_to = properties.get("reply_to", "")
                     post.mood = properties.get("mood", "")
+                    post.group = group_name
                     post.save()
                     posts_updated += 1
 

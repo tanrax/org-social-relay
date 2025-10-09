@@ -5,8 +5,7 @@ from rest_framework.response import Response
 from django.conf import settings
 from django.core.cache import cache
 
-from app.feeds.models import Post
-from .models import GroupMember
+from app.feeds.models import Post, Profile
 
 
 class GroupsView(APIView):
@@ -73,13 +72,9 @@ class GroupMessagesView(APIView):
         if cached_data:
             return Response(cached_data, status=status.HTTP_200_OK)
 
-        # Get all posts from members of this group
-        # TODO: When group field is added to Post model, filter by group
-        group_members = GroupMember.objects.filter(group_name=group_name).values_list(
-            "profile_id", flat=True
-        )
+        # Get all posts for this group
         group_posts = (
-            Post.objects.filter(profile_id__in=group_members)
+            Post.objects.filter(group=group_name)
             .select_related("profile")
             .order_by("-created_at")
         )
@@ -126,11 +121,11 @@ class GroupMessagesView(APIView):
                     }
                 )
 
-        # Get group members
-        group_members = GroupMember.objects.filter(
-            group_name=group_name
-        ).select_related("profile")
-        members_list = [member.profile.feed for member in group_members]
+        # Get group members (unique profiles that have posted in this group)
+        member_profiles = Profile.objects.filter(
+            posts__group=group_name
+        ).distinct()
+        members_list = [profile.feed for profile in member_profiles]
 
         # Generate version hash
         version_string = "".join(sorted([p["post"] for p in messages_tree]))
