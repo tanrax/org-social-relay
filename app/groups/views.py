@@ -122,9 +122,7 @@ class GroupMessagesView(APIView):
                 )
 
         # Get group members (unique profiles that have posted in this group)
-        member_profiles = Profile.objects.filter(
-            posts__group=group_name
-        ).distinct()
+        member_profiles = Profile.objects.filter(posts__group=group_name).distinct()
         members_list = [profile.feed for profile in member_profiles]
 
         # Generate version hash
