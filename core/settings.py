@@ -38,10 +38,25 @@ SITE_DOMAIN = os.environ.get("SITE_DOMAIN", "localhost:8080")
 
 # Groups configuration
 # Parse comma-separated groups from environment variable
+# Groups can have spaces and capital letters (e.g., "Emacs,Org Social,Elisp")
+# Slugs are auto-generated (lowercase, spaces become hyphens)
+
+
+def slugify_group(name):
+    """Convert group name to slug (lowercase, spaces to hyphens)."""
+    return name.strip().lower().replace(" ", "-")
+
+
 GROUPS_ENV = os.environ.get("GROUPS", "")
 if GROUPS_ENV.strip():
-    ENABLED_GROUPS = [group.strip() for group in GROUPS_ENV.split(",") if group.strip()]
+    # Parse group names (can have spaces and capitals)
+    group_names = [group.strip() for group in GROUPS_ENV.split(",") if group.strip()]
+
+    # Create mappings between slugs and names
+    GROUPS_MAP = {slugify_group(name): name for name in group_names}
+    ENABLED_GROUPS = list(GROUPS_MAP.keys())  # List of slugs for backward compatibility
 else:
+    GROUPS_MAP = {}
     ENABLED_GROUPS = []
 
 

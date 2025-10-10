@@ -79,8 +79,10 @@ nano .env
 
 #### Important Environment Variables
 
-- **`GROUPS`**: Comma-separated list of groups available in the relay (optional)
-  - Example: `GROUPS=emacs,org-social,elisp`
+- **`GROUPS`**: Comma-separated list of group names available in the relay (optional)
+  - Example: `GROUPS=Emacs,Org Social,Elisp`
+  - Group names can have spaces and capital letters
+  - Slugs (for URLs) are generated automatically (lowercase, spaces become hyphens)
   - Leave empty if no groups are needed
   - Groups allow users to participate in topic-based discussions
 
@@ -136,7 +138,7 @@ curl http://localhost:8080/
         "replies": {"href": "/replies/?post={post_url}", "method": "GET", "templated": true},
         "search": {"href": "/search/?q={query}", "method": "GET", "templated": true},
         "groups": {"href": "/groups/", "method": "GET"},
-        "group-messages": {"href": "/groups/{group_name}/", "method": "GET", "templated": true},
+        "group-messages": {"href": "/groups/{group_slug}/", "method": "GET", "templated": true},
         "polls": {"href": "/polls/", "method": "GET"},
         "poll-votes": {"href": "/polls/votes/?post={post_url}", "method": "GET", "templated": true}
     }
@@ -360,9 +362,9 @@ curl http://localhost:8080/groups/
     "type": "Success",
     "errors": [],
     "data": [
-        "emacs",
-        "org-mode",
-        "programming"
+        "Emacs",
+        "Org Mode",
+        "Programming"
     ],
     "_links": {
         "self": {
@@ -371,17 +373,17 @@ curl http://localhost:8080/groups/
         },
         "groups": [
             {
-                "name": "emacs",
+                "name": "Emacs",
                 "href": "/groups/emacs/",
                 "method": "GET"
             },
             {
-                "name": "org-mode",
+                "name": "Org Mode",
                 "href": "/groups/org-mode/",
                 "method": "GET"
             },
             {
-                "name": "programming",
+                "name": "Programming",
                 "href": "/groups/programming/",
                 "method": "GET"
             }
@@ -401,7 +403,7 @@ curl http://localhost:8080/groups/
 
 ### Get group messages
 
-`/groups/{group_name}/` - Get messages from a group.
+`/groups/{group_slug}/` - Get messages from a group. The URL uses the group slug (lowercase, spaces replaced with hyphens).
 
 ```sh
 curl http://localhost:8080/groups/emacs/
@@ -427,7 +429,7 @@ curl http://localhost:8080/groups/emacs/
         }
     ],
     "meta": {
-        "group": "emacs",
+        "group": "Emacs",
         "members": [
             "https://alice.org/social.org",
             "https://bob.org/social.org",
@@ -539,7 +541,7 @@ To configure groups in your relay, set the `GROUPS` environment variable with a 
 
 ```bash
 # In your .env file
-GROUPS=emacs,org-social,elisp,programming,tech
+GROUPS=Emacs,Org Social,Elisp,Programming,Tech
 ```
 
 ### Groups Configuration Examples
@@ -552,19 +554,13 @@ GROUPS=
 
 **Single group:**
 ```bash
-GROUPS=emacs
+GROUPS=Emacs
 ```
 
 **Multiple groups:**
 ```bash
-GROUPS=emacs,org-social,elisp
+GROUPS=Emacs,Org Social,Elisp
 ```
-
-### Groups Naming Guidelines
-
-- Use lowercase letters, numbers, and hyphens
-- Keep names descriptive but concise
-- Examples: `emacs`, `org-social`, `web-dev`, `machine-learning`
 
 ### Using Groups
 

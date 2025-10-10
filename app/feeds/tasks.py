@@ -475,13 +475,26 @@ def scan_feeds():
                 properties = post_data.get("properties", {})
 
                 # Extract group name from GROUP property
-                # Format: "emacs https://org-social-relay.andros.dev" or just "emacs"
+                # Format: "Emacs https://org-social-relay.andros.dev" or just "Emacs"
+                # Group names can have spaces and capitals - we slugify them
+                from django.conf import settings
+
                 group_metadata = properties.get("group", "").strip()
-                group_name = ""
+                group_slug = ""
                 if group_metadata:
-                    parts = group_metadata.split()
-                    if parts:
-                        group_name = parts[0].strip()
+                    # Extract group name (everything before the URL if present)
+                    parts = group_metadata.split("http", 1)
+                    raw_group_name = parts[0].strip()
+
+                    if raw_group_name:
+                        # Slugify the group name to match ENABLED_GROUPS format
+                        from core.settings import slugify_group
+
+                        group_slug = slugify_group(raw_group_name)
+
+                        # Only save if it matches an enabled group
+                        if group_slug not in settings.ENABLED_GROUPS:
+                            group_slug = ""
 
                 # Get or create post
                 post, post_created = Post.objects.get_or_create(
@@ -494,7 +507,7 @@ def scan_feeds():
                         "client": properties.get("client", ""),
                         "reply_to": properties.get("reply_to", ""),
                         "mood": properties.get("mood", ""),
-                        "group": group_name,
+                        "group": group_slug,
                         "poll_end": None,
                     },
                 )
@@ -509,7 +522,7 @@ def scan_feeds():
                     post.client = properties.get("client", "")
                     post.reply_to = properties.get("reply_to", "")
                     post.mood = properties.get("mood", "")
-                    post.group = group_name
+                    post.group = group_slug
                     post.save()
                     posts_updated += 1
 

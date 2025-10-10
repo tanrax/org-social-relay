@@ -12,7 +12,7 @@ class GroupsViewTest(TestCase):
         self.client = APIClient()
         self.groups_url = "/groups/"
 
-    @override_settings(ENABLED_GROUPS=[])
+    @override_settings(ENABLED_GROUPS=[], GROUPS_MAP={})
     def test_no_groups_configured(self):
         """Test GET /groups/ when no groups are configured."""
         # Given: No groups configured
@@ -25,7 +25,10 @@ class GroupsViewTest(TestCase):
         self.assertEqual(response.data["type"], "Error")
         self.assertIn("No groups configured", response.data["errors"][0])
 
-    @override_settings(ENABLED_GROUPS=["emacs", "org-social", "python"])
+    @override_settings(
+        ENABLED_GROUPS=["emacs", "org-social", "python"],
+        GROUPS_MAP={"emacs": "Emacs", "org-social": "Org Social", "python": "Python"},
+    )
     def test_list_groups_success(self):
         """Test GET /groups/ returns configured groups."""
         # Given: Groups configured
@@ -33,13 +36,19 @@ class GroupsViewTest(TestCase):
         # When: We request groups list
         response = self.client.get(self.groups_url)
 
-        # Then: Should return success with group names
+        # Then: Should return success with group display names
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["type"], "Success")
         self.assertEqual(len(response.data["data"]), 3)
-        self.assertEqual(response.data["data"], ["emacs", "org-social", "python"])
+        # Data should contain display names, not slugs
+        self.assertIn("Emacs", response.data["data"])
+        self.assertIn("Org Social", response.data["data"])
+        self.assertIn("Python", response.data["data"])
 
-    @override_settings(ENABLED_GROUPS=["emacs", "org-social"])
+    @override_settings(
+        ENABLED_GROUPS=["emacs", "org-social"],
+        GROUPS_MAP={"emacs": "Emacs", "org-social": "Org Social"},
+    )
     def test_list_groups_empty_groups(self):
         """Test GET /groups/ when groups are configured."""
         # Given: Groups configured
@@ -47,11 +56,12 @@ class GroupsViewTest(TestCase):
         # When: We request groups list
         response = self.client.get(self.groups_url)
 
-        # Then: Should return group names
+        # Then: Should return group display names
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["type"], "Success")
         self.assertEqual(len(response.data["data"]), 2)
-        self.assertEqual(response.data["data"], ["emacs", "org-social"])
+        self.assertIn("Emacs", response.data["data"])
+        self.assertIn("Org Social", response.data["data"])
 
 
 class GroupMessagesViewTest(TestCase):
@@ -68,10 +78,13 @@ class GroupMessagesViewTest(TestCase):
             feed="https://test.com/social.org", nick="user2"
         )
 
-    @override_settings(ENABLED_GROUPS=["emacs", "python"])
+    @override_settings(
+        ENABLED_GROUPS=["emacs", "python"],
+        GROUPS_MAP={"emacs": "Emacs", "python": "Python"},
+    )
     def test_get_group_messages_success(self):
         """Test GET /groups/{id}/ returns group messages."""
-        # Given: Posts with group metadata
+        # Given: Posts with group metadata (using slugs)
         Post.objects.create(
             profile=self.profile1,
             post_id="2025-01-01T12:00:00+00:00",
@@ -95,7 +108,7 @@ class GroupMessagesViewTest(TestCase):
             group="python",
         )
 
-        # When: We request emacs group messages
+        # When: We request emacs group messages (using slug in URL)
         response = self.client.get("/groups/emacs/")
 
         # Then: Should return only emacs posts
@@ -103,12 +116,12 @@ class GroupMessagesViewTest(TestCase):
         self.assertEqual(response.data["type"], "Success")
         self.assertEqual(len(response.data["data"]), 2)
 
-        # Check meta
-        self.assertEqual(response.data["meta"]["group"], "emacs")
+        # Check meta - should contain display name, not slug
+        self.assertEqual(response.data["meta"]["group"], "Emacs")
         self.assertIn("members", response.data["meta"])
         self.assertIn("version", response.data["meta"])
 
-    @override_settings(ENABLED_GROUPS=["emacs"])
+    @override_settings(ENABLED_GROUPS=["emacs"], GROUPS_MAP={"emacs": "Emacs"})
     def test_get_group_messages_with_replies(self):
         """Test group messages with reply tree structure."""
         # Given: Posts with replies in group
@@ -145,7 +158,7 @@ class GroupMessagesViewTest(TestCase):
         self.assertEqual(len(original["children"]), 1)
         self.assertIn("2025-01-01T13:00:00", original["children"][0]["post"])
 
-    @override_settings(ENABLED_GROUPS=["emacs"])
+    @override_settings(ENABLED_GROUPS=["emacs"], GROUPS_MAP={"emacs": "Emacs"})
     def test_get_group_messages_empty(self):
         """Test group with no messages."""
         # Given: No posts in group
@@ -159,7 +172,7 @@ class GroupMessagesViewTest(TestCase):
         self.assertEqual(response.data["data"], [])
         self.assertEqual(len(response.data["data"]), 0)
 
-    @override_settings(ENABLED_GROUPS=["emacs"])
+    @override_settings(ENABLED_GROUPS=["emacs"], GROUPS_MAP={"emacs": "Emacs"})
     def test_get_group_messages_invalid_group(self):
         """Test getting messages from invalid group."""
         # Given: Invalid group ID
@@ -171,7 +184,10 @@ class GroupMessagesViewTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(response.data["type"], "Error")
 
-    @override_settings(ENABLED_GROUPS=["emacs", "python"])
+    @override_settings(
+        ENABLED_GROUPS=["emacs", "python"],
+        GROUPS_MAP={"emacs": "Emacs", "python": "Python"},
+    )
     def test_get_group_messages_caching(self):
         """Test that group messages are cached."""
         # Given: Posts in group
@@ -202,7 +218,10 @@ class GroupsIntegrationTest(TestCase):
     def setUp(self):
         self.client = APIClient()
 
-    @override_settings(ENABLED_GROUPS=["emacs", "org-social", "python"])
+    @override_settings(
+        ENABLED_GROUPS=["emacs", "org-social", "python"],
+        GROUPS_MAP={"emacs": "Emacs", "org-social": "Org Social", "python": "Python"},
+    )
     def test_full_group_workflow(self):
         """Test complete group workflow: list, create profile/post, retrieve."""
         # Given: Initial state
@@ -236,9 +255,10 @@ class GroupsIntegrationTest(TestCase):
         # Step 5: Verify groups list still works
         response = self.client.get("/groups/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn("emacs", response.data["data"])
+        # Should contain display name, not slug
+        self.assertIn("Emacs", response.data["data"])
 
-    @override_settings(ENABLED_GROUPS=[])
+    @override_settings(ENABLED_GROUPS=[], GROUPS_MAP={})
     def test_groups_disabled(self):
         """Test behavior when groups are not configured."""
         # When: We try to access any group endpoint
