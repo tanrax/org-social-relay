@@ -24,14 +24,14 @@ class GroupsView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Simple group list - just the group names
-        groups_data = list(settings.ENABLED_GROUPS)
+        # Return group names (not slugs)
+        groups_data = list(settings.GROUPS_MAP.values())
 
-        # Build individual group links
+        # Build individual group links (name + slug in href)
         group_links = []
-        for group_name in settings.ENABLED_GROUPS:
+        for slug, name in settings.GROUPS_MAP.items():
             group_links.append(
-                {"name": group_name, "href": f"/groups/{group_name}/", "method": "GET"}
+                {"name": name, "href": f"/groups/{slug}/", "method": "GET"}
             )
 
         return Response(
@@ -51,22 +51,25 @@ class GroupsView(APIView):
 class GroupMessagesView(APIView):
     """Get messages from a group."""
 
-    def get(self, request, group_name):
-        """GET /groups/{group_name}/ - Get messages from a group."""
-        # Validate group_name
-        if group_name not in settings.ENABLED_GROUPS:
+    def get(self, request, group_slug):
+        """GET /groups/{group_slug}/ - Get messages from a group."""
+        # Validate group_slug
+        if group_slug not in settings.ENABLED_GROUPS:
             return Response(
                 {
                     "type": "Error",
-                    "errors": [f"Group '{group_name}' does not exist"],
+                    "errors": [f"Group '{group_slug}' does not exist"],
                     "data": [],
                     "meta": {},
                 },
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        # Get display name from slug
+        group_display_name = settings.GROUPS_MAP[group_slug]
+
         # Try to get from cache
-        cache_key = f"group_messages:{group_name}"
+        cache_key = f"group_messages:{group_slug}"
         cached_data = cache.get(cache_key)
 
         if cached_data:
@@ -74,7 +77,7 @@ class GroupMessagesView(APIView):
 
         # Get all posts for this group
         group_posts = (
-            Post.objects.filter(group=group_name)
+            Post.objects.filter(group=group_slug)
             .select_related("profile")
             .order_by("-created_at")
         )
@@ -122,29 +125,29 @@ class GroupMessagesView(APIView):
                 )
 
         # Get group members (unique profiles that have posted in this group)
-        member_profiles = Profile.objects.filter(posts__group=group_name).distinct()
+        member_profiles = Profile.objects.filter(posts__group=group_slug).distinct()
         members_list = [profile.feed for profile in member_profiles]
 
         # Generate version hash
         version_string = "".join(sorted([p["post"] for p in messages_tree]))
         version = hashlib.sha256(version_string.encode()).hexdigest()[:8]
 
-        # URL encode the group_name for the join link template
+        # URL encode the group_slug for the join link template
         from urllib.parse import quote
 
-        encoded_group_name = quote(group_name, safe="")
+        encoded_group_slug = quote(group_slug, safe="")
 
         response_data = {
             "type": "Success",
             "errors": [],
             "data": messages_tree,
             "meta": {
-                "group": group_name,
+                "group": group_display_name,
                 "members": members_list,
                 "version": version,
             },
             "_links": {
-                "self": {"href": f"/groups/{encoded_group_name}/", "method": "GET"},
+                "self": {"href": f"/groups/{encoded_group_slug}/", "method": "GET"},
                 "group-list": {"href": "/groups/", "method": "GET"},
             },
         }
