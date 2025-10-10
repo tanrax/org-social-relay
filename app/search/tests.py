@@ -360,3 +360,76 @@ class SearchViewTest(TestCase):
         # Then: Meta should indicate different search types
         self.assertIn("tag", tag_response.data["meta"])
         self.assertIn("query", query_response.data["meta"])
+
+    def test_search_tag_exact_word_match(self):
+        """Test that tag search matches exact words only, not substrings."""
+        # Given: Posts with tags that contain similar strings
+        post_emacs = Post.objects.create(
+            profile=self.profile1,
+            post_id="2025-01-02T10:00:00+00:00",
+            content="Post about emacs",
+            tags="emacs",
+        )
+        post_emacs_org = Post.objects.create(
+            profile=self.profile1,
+            post_id="2025-01-02T10:01:00+00:00",
+            content="Post about emacs and org-mode",
+            tags="emacs org-mode",
+        )
+        post_emacs_lisp = Post.objects.create(
+            profile=self.profile1,
+            post_id="2025-01-02T10:02:00+00:00",
+            content="Post about emacs-lisp",
+            tags="emacs-lisp",
+        )
+        post_notemacs = Post.objects.create(
+            profile=self.profile1,
+            post_id="2025-01-02T10:03:00+00:00",
+            content="Post with notemacs tag",
+            tags="notemacs",
+        )
+        post_python = Post.objects.create(
+            profile=self.profile1,
+            post_id="2025-01-02T10:04:00+00:00",
+            content="Post about python",
+            tags="python",
+        )
+
+        # When: We search for tag "emacs"
+        response = self.client.get(self.search_url, {"tag": "emacs"})
+
+        # Then: Should return only posts with "emacs" as complete word
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.data["data"]
+
+        # Should include posts with "emacs" as complete word
+        self.assertIn(f"{post_emacs.profile.feed}#{post_emacs.post_id}", data)
+        self.assertIn(f"{post_emacs_org.profile.feed}#{post_emacs_org.post_id}", data)
+
+        # Should NOT include posts where "emacs" is part of another word
+        self.assertNotIn(
+            f"{post_emacs_lisp.profile.feed}#{post_emacs_lisp.post_id}", data
+        )
+        self.assertNotIn(f"{post_notemacs.profile.feed}#{post_notemacs.post_id}", data)
+        self.assertNotIn(f"{post_python.profile.feed}#{post_python.post_id}", data)
+
+    def test_search_tag_case_insensitive(self):
+        """Test that tag search is case insensitive."""
+        # Given: Post with lowercase tag
+        post = Post.objects.create(
+            profile=self.profile1,
+            post_id="2025-01-02T11:00:00+00:00",
+            content="Test post",
+            tags="python django",
+        )
+
+        # When: We search with different case variations
+        response_lower = self.client.get(self.search_url, {"tag": "python"})
+        response_upper = self.client.get(self.search_url, {"tag": "PYTHON"})
+        response_mixed = self.client.get(self.search_url, {"tag": "PyThOn"})
+
+        # Then: All should find the post
+        expected_url = f"{post.profile.feed}#{post.post_id}"
+        self.assertIn(expected_url, response_lower.data["data"])
+        self.assertIn(expected_url, response_upper.data["data"])
+        self.assertIn(expected_url, response_mixed.data["data"])

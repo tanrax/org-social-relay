@@ -6,6 +6,7 @@ from django.db.models import Q
 from django.core.paginator import Paginator
 import logging
 import hashlib
+import re
 
 from app.feeds.models import Post
 
@@ -61,8 +62,13 @@ class SearchView(APIView):
             search_type = "query"
             search_value = query
         else:
-            # Search by specific tag
-            posts_query = posts_query.filter(tags__icontains=tag)
+            # Search by specific tag (exact word match, case insensitive)
+            # Match tag as complete word: at start, end, middle, or alone
+            # Examples: "emacs", "emacs org-mode", "python emacs", "emacs-lisp emacs"
+            tag_escaped = re.escape(tag)
+            # Use word boundaries to match complete words only
+            tag_pattern = rf"(^|[\s]){tag_escaped}([\s]|$)"
+            posts_query = posts_query.filter(tags__iregex=tag_pattern)
             search_type = "tag"
             search_value = tag
 
