@@ -3,6 +3,8 @@ from huey import crontab
 import logging
 import requests
 import hashlib
+from django.utils import timezone
+from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -647,3 +649,70 @@ def scan_feeds():
 
     cache.clear()
     logger.info("Cache cleared after feed scanning - next requests will get fresh data")
+
+
+def _cleanup_stale_feeds_impl():
+    """
+    Implementation of stale feed cleanup logic.
+    This is separated from the periodic task to allow for easier testing.
+
+    Returns:
+        int: Number of feeds deleted
+    """
+    from .models import Feed
+
+    logger.info("Starting cleanup of stale feeds")
+
+    # Calculate the cutoff date (3 days ago)
+    cutoff_date = timezone.now() - timedelta(days=3)
+
+    # Find stale feeds (last_successful_fetch is older than 3 days)
+    # Exclude feeds where last_successful_fetch is NULL (legacy feeds)
+    stale_feeds = Feed.objects.filter(
+        last_successful_fetch__lt=cutoff_date,
+        last_successful_fetch__isnull=False,
+    )
+
+    stale_count = stale_feeds.count()
+
+    if stale_count == 0:
+        logger.info("No stale feeds found to clean up")
+        return 0
+
+    # Log the feeds being deleted
+    logger.info(f"Found {stale_count} stale feeds to delete")
+    for feed in stale_feeds[:10]:  # Log first 10 for reference
+        days_since_fetch = (timezone.now() - feed.last_successful_fetch).days
+        logger.info(
+            f"Deleting stale feed: {feed.url} "
+            f"(last successful fetch: {days_since_fetch} days ago)"
+        )
+
+    if stale_count > 10:
+        logger.info(f"... and {stale_count - 10} more feeds")
+
+    # Delete the stale feeds
+    deleted_count, _ = stale_feeds.delete()
+
+    logger.info(
+        f"Stale feed cleanup completed. Deleted {deleted_count} feeds that "
+        f"haven't been successfully fetched in the last 3 days"
+    )
+
+    return deleted_count
+
+
+@periodic_task(crontab(day="*/3", hour=2, minute=0))  # Run every 3 days at 2 AM
+def cleanup_stale_feeds():
+    """
+    Periodic task to clean up feeds that haven't been successfully fetched in 3 days.
+
+    This task:
+    1. Finds all feeds with last_successful_fetch older than 3 days
+    2. Deletes those feeds from the database
+    3. Logs the cleanup results
+
+    Note: Feeds with last_successful_fetch = NULL are NOT deleted.
+    This protects feeds that existed before the field was added.
+    """
+    return _cleanup_stale_feeds_impl()
