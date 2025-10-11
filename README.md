@@ -134,7 +134,10 @@ curl http://localhost:8080/
         "self": {"href": "/", "method": "GET"},
         "feeds": {"href": "/feeds/", "method": "GET"},
         "add-feed": {"href": "/feeds/", "method": "POST"},
+        "notifications": {"href": "/notifications/?feed={feed_url}", "method": "GET", "templated": true},
         "mentions": {"href": "/mentions/?feed={feed_url}", "method": "GET", "templated": true},
+        "reactions": {"href": "/reactions/?feed={feed_url}", "method": "GET", "templated": true},
+        "replies-to": {"href": "/replies-to/?feed={feed_url}", "method": "GET", "templated": true},
         "replies": {"href": "/replies/?post={post_url}", "method": "GET", "templated": true},
         "search": {"href": "/search/?q={query}", "method": "GET", "templated": true},
         "groups": {"href": "/groups/", "method": "GET"},
@@ -186,6 +189,83 @@ curl -X POST http://localhost:8080/feeds/ -d '{"feed": "https://example.com/path
 }
 ```
 
+### Get notifications
+
+`/notifications/?feed={url feed}` - Get all notifications (mentions, reactions, and replies) received by a given feed. Results are ordered from most recent to oldest.
+
+```sh
+# URL must be encoded when passed as query parameter
+curl "http://localhost:8080/notifications/?feed=https%3A%2F%2Fexample.com%2Fsocial.org"
+
+# Or use curl's --data-urlencode for automatic encoding:
+curl -G "http://localhost:8080/notifications/" --data-urlencode "feed=https://example.com/social.org"
+```
+
+```json
+{
+    "type": "Success",
+    "errors": [],
+    "data": [
+        {
+            "type": "reaction",
+            "post": "https://alice.org/social.org#2025-02-05T13:15:00+0100",
+            "emoji": "❤",
+            "parent": "https://example.com/social.org#2025-02-05T12:00:00+0100"
+        },
+        {
+            "type": "reply",
+            "post": "https://bob.org/social.org#2025-02-05T12:30:00+0100",
+            "parent": "https://example.com/social.org#2025-02-05T10:00:00+0100"
+        },
+        {
+            "type": "mention",
+            "post": "https://charlie.org/social.org#2025-02-05T11:20:00+0100"
+        },
+        {
+            "type": "reaction",
+            "post": "https://diana.org/social.org#2025-02-04T15:45:00+0100",
+            "emoji": "🚀",
+            "parent": "https://example.com/social.org#2025-02-04T10:00:00+0100"
+        }
+    ],
+    "meta": {
+        "feed": "https://example.com/social.org",
+        "total": 4,
+        "by_type": {
+            "mentions": 1,
+            "reactions": 2,
+            "replies": 1
+        },
+        "version": "123"
+    },
+    "_links": {
+        "self": {"href": "/notifications/?feed=https%3A%2F%2Fexample.com%2Fsocial.org", "method": "GET"},
+        "mentions": {"href": "/mentions/?feed=https%3A%2F%2Fexample.com%2Fsocial.org", "method": "GET"},
+        "reactions": {"href": "/reactions/?feed=https%3A%2F%2Fexample.com%2Fsocial.org", "method": "GET"},
+        "replies-to": {"href": "/replies-to/?feed=https%3A%2F%2Fexample.com%2Fsocial.org", "method": "GET"}
+    }
+}
+```
+
+Each notification includes:
+- `type`: The notification type (`"mention"`, `"reaction"`, or `"reply"`)
+- `post`: The notification post URL (format: `{author_feed}#{timestamp}`)
+- `emoji`: (Only for reactions) The reaction emoji
+- `parent`: (Only for reactions and replies) The post URL that received the notification
+
+**Mentions** only have `type` and `post` because you are the one being mentioned in someone else's post.
+
+**Reactions and replies** have `parent` to indicate which of your posts received the reaction/reply.
+
+To extract the author's feed from the `post` field, simply take the part before the `#` character. For example, from `https://alice.org/social.org#2025-02-05T13:15:00+0100`, the author is `https://alice.org/social.org`.
+
+The `version` in the `meta` field is a unique identifier for the current state of all notifications. You can use it to check if there are new notifications since your last request.
+
+The `by_type` breakdown in `meta` allows you to show notification counts per type in your UI.
+
+**Optional parameters:**
+- `type`: Filter by notification type (`mention`, `reaction`, `reply`)
+  - Example: `/notifications/?feed={feed}&type=reaction`
 
 ### Get mentions
 
@@ -220,6 +300,115 @@ curl -G "http://localhost:8080/mentions/" --data-urlencode "feed=https://example
 ```
 
 The `version` in the `meta` field is a unique identifier for the current state of mentions for the given feed. You can use it to check if there are new mentions since your last request.
+
+### Get reactions
+
+`/reactions/?feed={url feed}` - Get all reactions received by posts from a given feed. A reaction is a special post with a `:MOOD:` property and `:REPLY_TO:` pointing to the reacted post. Results are ordered from most recent to oldest.
+
+```sh
+# URL must be encoded when passed as query parameter
+curl "http://localhost:8080/reactions/?feed=https%3A%2F%2Fexample.com%2Fsocial.org"
+
+# Or use curl's --data-urlencode for automatic encoding:
+curl -G "http://localhost:8080/reactions/" --data-urlencode "feed=https://example.com/social.org"
+```
+
+```json
+{
+    "type": "Success",
+    "errors": [],
+    "data": [
+        {
+            "post": "https://alice.org/social.org#2025-02-05T13:15:00+0100",
+            "emoji": "❤",
+            "parent": "https://example.com/social.org#2025-02-05T12:00:00+0100"
+        },
+        {
+            "post": "https://bob.org/social.org#2025-02-05T14:30:00+0100",
+            "emoji": "🚀",
+            "parent": "https://example.com/social.org#2025-02-05T12:00:00+0100"
+        },
+        {
+            "post": "https://charlie.org/social.org#2025-02-04T11:20:00+0100",
+            "emoji": "👍",
+            "parent": "https://example.com/social.org#2025-02-04T10:00:00+0100"
+        }
+    ],
+    "meta": {
+        "feed": "https://example.com/social.org",
+        "total": 3,
+        "version": "123"
+    },
+    "_links": {
+        "self": {"href": "/reactions/?feed=https%3A%2F%2Fexample.com%2Fsocial.org", "method": "GET"}
+    }
+}
+```
+
+The response includes:
+- `post`: The reaction post URL (format: `{author_feed}#{timestamp}`)
+- `emoji`: The reaction emoji (from `:MOOD:` property)
+- `parent`: The post URL that received the reaction
+
+To extract the author's feed from the `post` field, simply take the part before the `#` character. For example, from `https://alice.org/social.org#2025-02-05T13:15:00+0100`, the author is `https://alice.org/social.org`.
+
+The `version` in the `meta` field is a unique identifier for the current state of reactions for the given feed. You can use it to check if there are new reactions since your last request.
+
+**Note:** According to Org Social specification, reactions are posts with:
+- `:REPLY_TO:` property pointing to the reacted post
+- `:MOOD:` property containing the emoji
+- Empty or minimal content
+
+### Get replies to feed
+
+`/replies-to/?feed={url feed}` - Get all replies received by posts from a given feed. A reply is a post with a `:REPLY_TO:` property pointing to one of your posts (but without a `:MOOD:` or `:POLL_OPTION:` property, which would make it a reaction or poll vote instead). Results are ordered from most recent to oldest.
+
+```sh
+# URL must be encoded when passed as query parameter
+curl "http://localhost:8080/replies-to/?feed=https%3A%2F%2Fexample.com%2Fsocial.org"
+
+# Or use curl's --data-urlencode for automatic encoding:
+curl -G "http://localhost:8080/replies-to/" --data-urlencode "feed=https://example.com/social.org"
+```
+
+```json
+{
+    "type": "Success",
+    "errors": [],
+    "data": [
+        {
+            "post": "https://alice.org/social.org#2025-02-05T13:15:00+0100",
+            "parent": "https://example.com/social.org#2025-02-05T12:00:00+0100"
+        },
+        {
+            "post": "https://bob.org/social.org#2025-02-05T14:30:00+0100",
+            "parent": "https://example.com/social.org#2025-02-05T12:00:00+0100"
+        },
+        {
+            "post": "https://charlie.org/social.org#2025-02-04T11:20:00+0100",
+            "parent": "https://example.com/social.org#2025-02-04T10:00:00+0100"
+        }
+    ],
+    "meta": {
+        "feed": "https://example.com/social.org",
+        "total": 3,
+        "version": "123"
+    },
+    "_links": {
+        "self": {"href": "/replies-to/?feed=https%3A%2F%2Fexample.com%2Fsocial.org", "method": "GET"}
+    }
+}
+```
+
+The response includes:
+- `post`: The reply post URL (format: `{author_feed}#{timestamp}`)
+- `parent`: The post URL that received the reply
+
+To extract the author's feed from the `post` field, simply take the part before the `#` character. For example, from `https://alice.org/social.org#2025-02-05T13:15:00+0100`, the author is `https://alice.org/social.org`.
+
+The `version` in the `meta` field is a unique identifier for the current state of replies for the given feed. You can use it to check if there are new replies since your last request.
+
+**Note:** This endpoint shows direct replies to your posts. To see the full conversation thread of a specific post, use the `/replies/?post={post_url}` endpoint instead.
 
 ### Get replies/threads
 
