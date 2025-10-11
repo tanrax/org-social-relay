@@ -25,6 +25,21 @@ def root_view(request):
                     "method": "GET",
                     "templated": True,
                 },
+                "notifications": {
+                    "href": "/notifications/?feed={feed_url}",
+                    "method": "GET",
+                    "templated": True,
+                },
+                "reactions": {
+                    "href": "/reactions/?feed={feed_url}",
+                    "method": "GET",
+                    "templated": True,
+                },
+                "replies-to": {
+                    "href": "/replies-to/?feed={feed_url}",
+                    "method": "GET",
+                    "templated": True,
+                },
                 "search": {
                     "href": "/search/?q={query}",
                     "method": "GET",
