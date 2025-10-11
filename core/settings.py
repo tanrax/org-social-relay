@@ -72,6 +72,9 @@ INSTALLED_APPS = [
     "app.polls.apps.PollsConfig",
     "app.replies.apps.RepliesConfig",
     "app.mentions.apps.MentionsConfig",
+    "app.reactions.apps.ReactionsConfig",
+    "app.repliesto.apps.RepliesToConfig",
+    "app.notifications.apps.NotificationsConfig",
     "app.search.apps.SearchConfig",
     "app.groups.apps.GroupsConfig",
 ]
