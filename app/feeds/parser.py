@@ -1,6 +1,22 @@
 import re
 import requests
 from typing import Dict, Any, Tuple
+from django.utils import timezone
+
+
+def _update_feed_last_successful_fetch(url: str):
+    """
+    Update the last_successful_fetch field for a feed URL.
+    This is called when a feed is successfully fetched with HTTP 200.
+    """
+    try:
+        from .models import Feed
+
+        Feed.objects.filter(url=url).update(last_successful_fetch=timezone.now())
+    except Exception:
+        # Silently fail if Feed model is not available or update fails
+        # This prevents breaking existing code during migrations or in tests
+        pass
 
 
 def parse_org_social(url: str) -> Dict[str, Any]:
@@ -17,6 +33,11 @@ def parse_org_social(url: str) -> Dict[str, Any]:
         response = requests.get(url, timeout=5)
         response.raise_for_status()
         content = response.text
+
+        # Update last_successful_fetch if we got a 200 response
+        if response.status_code == 200:
+            _update_feed_last_successful_fetch(url)
+
     except requests.RequestException as e:
         raise Exception(f"Failed to fetch URL {url}: {str(e)}")
 
@@ -271,6 +292,9 @@ def validate_org_social_feed(url: str) -> Tuple[bool, str]:
         response = requests.get(url, timeout=5)
         if response.status_code != 200:
             return False, f"URL returned status code {response.status_code}"
+
+        # Update last_successful_fetch since we got a 200 response
+        _update_feed_last_successful_fetch(url)
 
         content = response.text
 

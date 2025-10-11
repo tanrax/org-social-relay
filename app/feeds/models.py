@@ -217,6 +217,11 @@ class Feed(models.Model):
 
     url = models.URLField()
     created_at = models.DateTimeField(auto_now_add=True)
+    last_successful_fetch = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Last time this feed was successfully fetched with HTTP 200",
+    )
 
     def __str__(self):
         return self.url
