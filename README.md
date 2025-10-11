@@ -779,3 +779,7 @@ Every 3 hours, Relay will search for new users on other nodes.
 #### Discover new feeds
 
 Every day at midnight, Relay analyzes the feeds of all registered users to discover new feeds they follow.
+
+#### Cleanup stale feeds
+
+Every 3 days at 2 AM, Relay automatically removes feeds that haven't been successfully fetched (HTTP 200) in the last 3 days. This keeps the relay efficient by removing inactive or dead feeds.
