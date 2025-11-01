@@ -126,13 +126,16 @@ def parse_org_social(url: str) -> Dict[str, Any]:
 
             # Parse properties
             if properties_text:
-                prop_matches = re.finditer(r":([^:]+):\s*([^\n]*)", properties_text)
+                # Use [ \t]* instead of \s* to avoid capturing newlines
+                prop_matches = re.finditer(r":([^:]+):[ \t]*([^\n]*)", properties_text)
                 for prop_match in prop_matches:
                     prop_name = prop_match.group(1).lower().strip()
                     prop_value = prop_match.group(2).strip()
-                    post["properties"][prop_name] = prop_value
-                    if prop_name == "id":
-                        post["id"] = prop_value
+                    # Only add non-empty properties
+                    if prop_value:
+                        post["properties"][prop_name] = prop_value
+                        if prop_name == "id":
+                            post["id"] = prop_value
 
             # Extract mentions from content
             mention_matches = re.finditer(
@@ -249,13 +252,16 @@ def parse_org_social_content(content: str) -> Dict[str, Any]:
 
             # Parse properties
             if properties_text:
-                prop_matches = re.finditer(r":([^:]+):\s*([^\n]*)", properties_text)
+                # Use [ \t]* instead of \s* to avoid capturing newlines
+                prop_matches = re.finditer(r":([^:]+):[ \t]*([^\n]*)", properties_text)
                 for prop_match in prop_matches:
                     prop_name = prop_match.group(1).lower().strip()
                     prop_value = prop_match.group(2).strip()
-                    post["properties"][prop_name] = prop_value
-                    if prop_name == "id":
-                        post["id"] = prop_value
+                    # Only add non-empty properties
+                    if prop_value:
+                        post["properties"][prop_name] = prop_value
+                        if prop_name == "id":
+                            post["id"] = prop_value
 
             # Extract mentions from content
             mention_matches = re.finditer(
