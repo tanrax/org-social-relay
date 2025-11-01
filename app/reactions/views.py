@@ -50,7 +50,6 @@ class ReactionsView(APIView):
 
         # Get all reactions to this profile's posts
         # A reaction is a post with mood != '' and reply_to pointing to this profile's posts
-        # We need to find posts that reply to our profile's posts and have a mood
 
         # First, get all post IDs from this profile
         profile_post_ids = list(profile.posts.values_list("post_id", flat=True))
@@ -59,9 +58,11 @@ class ReactionsView(APIView):
         reply_to_patterns = [f"{feed_url}#{post_id}" for post_id in profile_post_ids]
 
         # Find all posts that reply to any of this profile's posts and have a mood
+        # Exclude poll votes (posts with poll_votes relationship)
         reactions = (
             Post.objects.filter(reply_to__in=reply_to_patterns, mood__isnull=False)
             .exclude(mood="")
+            .exclude(poll_votes__isnull=False)
             .select_related("profile")
             .order_by("-post_id")
         )

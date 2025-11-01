@@ -382,3 +382,107 @@ Second post without subsections.
         self.assertEqual(post2["content"], "Second post without subsections.")
         self.assertNotIn("Section 1", post2["content"])
         self.assertNotIn("Section 2", post2["content"])
+
+    def test_parse_empty_properties_not_captured(self):
+        """Test that empty properties are not captured and don't interfere with other properties."""
+        # Given: An org social content with empty properties (the bug scenario)
+        content = """#+TITLE: Test
+#+NICK: test_user
+
+* Posts
+**
+:PROPERTIES:
+:ID: 2025-11-01T13:29:21+0100
+:TAGS:
+:CLIENT: org-social.el
+:REPLY_TO: https://andros.dev/static/social.org#2025-11-01T11:12:51+0100
+:MOOD:
+:POLL_OPTION: Continue improving org-social.el
+:END:
+
+"""
+
+        # When: We parse the content
+        from app.feeds.parser import parse_org_social_content
+
+        result = parse_org_social_content(content)
+
+        # Then: The post should be parsed correctly
+        self.assertEqual(len(result["posts"]), 1)
+        post = result["posts"][0]
+
+        # Then: Non-empty properties should be captured correctly
+        self.assertEqual(post["properties"]["id"], "2025-11-01T13:29:21+0100")
+        self.assertEqual(post["properties"]["client"], "org-social.el")
+        self.assertEqual(
+            post["properties"]["reply_to"],
+            "https://andros.dev/static/social.org#2025-11-01T11:12:51+0100",
+        )
+        self.assertEqual(
+            post["properties"]["poll_option"], "Continue improving org-social.el"
+        )
+
+        # Then: Empty properties should NOT be in the result
+        self.assertNotIn("tags", post["properties"])
+        self.assertNotIn("mood", post["properties"])
+
+        # Then: Verify that MOOD did not capture POLL_OPTION value (the bug)
+        # If the bug exists, mood would be ":POLL_OPTION: Continue improving org-social.el"
+        if "mood" in post["properties"]:
+            self.assertNotIn("POLL_OPTION", post["properties"]["mood"])
+
+    def test_parse_properties_regex_does_not_capture_newlines(self):
+        """Regression test: Verify the property regex doesn't capture newlines.
+
+        This test specifically validates that the regex pattern uses [ \\t]* instead of \\s*
+        to avoid capturing newlines after property names. This was the root cause of the
+        bug where :MOOD: would capture the entire next line including :POLL_OPTION:.
+        """
+        # Given: An org social content with properties on consecutive lines
+        content = """#+TITLE: Test
+#+NICK: test_user
+
+* Posts
+**
+:PROPERTIES:
+:ID: 2025-01-01T10:00:00+00:00
+:FIRST_EMPTY:
+:SECOND_PROPERTY: This should not be captured by FIRST_EMPTY
+:ANOTHER_EMPTY:
+:THIRD_PROPERTY: This should not be captured by ANOTHER_EMPTY
+:END:
+
+Test content
+"""
+
+        # When: We parse the content
+        from app.feeds.parser import parse_org_social_content
+
+        result = parse_org_social_content(content)
+
+        # Then: Properties should be parsed correctly
+        self.assertEqual(len(result["posts"]), 1)
+        post = result["posts"][0]
+
+        # Then: Non-empty properties should exist
+        self.assertEqual(
+            post["properties"]["second_property"],
+            "This should not be captured by FIRST_EMPTY",
+        )
+        self.assertEqual(
+            post["properties"]["third_property"],
+            "This should not be captured by ANOTHER_EMPTY",
+        )
+
+        # Then: Empty properties should NOT exist in the parsed result
+        self.assertNotIn("first_empty", post["properties"])
+        self.assertNotIn("another_empty", post["properties"])
+
+        # Then: Critical regression check - no property should contain a colon at the start
+        # (which would indicate it captured the next property)
+        for key, value in post["properties"].items():
+            self.assertFalse(
+                value.startswith(":"),
+                f"Property '{key}' has value starting with colon: '{value}'. "
+                f"This indicates the regex is capturing the next property.",
+            )
