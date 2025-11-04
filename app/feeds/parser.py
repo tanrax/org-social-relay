@@ -107,7 +107,7 @@ def parse_org_social(url: str) -> Dict[str, Any]:
         # Split posts by ** headers (exactly 2 asterisks, not 3+)
         # Use negative lookahead (?!\*) to ensure we don't match *** or ****
         # Use ^ anchor to match ** only at start of line
-        post_pattern = r"\*\*(?!\*)\s*\n(?::PROPERTIES:\s*\n((?::[^:\n]+:[^\n]*\n)*):END:\s*\n)?(.*?)(?=^\*\*(?!\*)|\Z)"
+        post_pattern = r"^\*\*(?!\*)[^\n]*\n(?::PROPERTIES:\s*\n((?::[^:\n]+:[^\n]*\n)*):END:\s*\n)?(.*?)(?=^\*\*(?!\*)|\Z)"
         post_matches = re.finditer(
             post_pattern, posts_content, re.DOTALL | re.MULTILINE
         )
@@ -233,7 +233,7 @@ def parse_org_social_content(content: str) -> Dict[str, Any]:
         # Split posts by ** headers (exactly 2 asterisks, not 3+)
         # Use negative lookahead (?!\*) to ensure we don't match *** or ****
         # Use ^ anchor to match ** only at start of line
-        post_pattern = r"\*\*(?!\*)\s*\n(?::PROPERTIES:\s*\n((?::[^:\n]+:[^\n]*\n)*):END:\s*\n)?(.*?)(?=^\*\*(?!\*)|\Z)"
+        post_pattern = r"^\*\*(?!\*)[^\n]*\n(?::PROPERTIES:\s*\n((?::[^:\n]+:[^\n]*\n)*):END:\s*\n)?(.*?)(?=^\*\*(?!\*)|\Z)"
         post_matches = re.finditer(
             post_pattern, posts_content, re.DOTALL | re.MULTILINE
         )
