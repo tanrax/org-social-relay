@@ -6,6 +6,7 @@ import logging
 import hashlib
 
 from app.feeds.models import Post, Profile
+from app.feeds.utils import get_parent_chain
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +127,7 @@ class RepliesView(APIView):
         return Response(response_data, status=status.HTTP_200_OK)
 
     def _build_replies_tree(self, all_replies, parent_url):
-        """Build a tree structure of replies with moods"""
+        """Build a tree structure of replies with moods and parent_chain"""
         # Create a map of all posts by their URL
         posts_map = {}
         for reply in all_replies:
@@ -145,19 +146,27 @@ class RepliesView(APIView):
         for reply in direct_replies:
             reply_url = f"{reply.profile.feed}#{reply.post_id}"
 
+            # Calculate parent chain for this reply
+            parent_chain = get_parent_chain(reply)
+
             # Recursively find children of this reply
             children = self._find_children(reply_url, all_replies)
 
             # Find moods for this reply
             moods = self._find_moods(reply_url, all_replies)
 
-            reply_node = {"post": reply_url, "children": children, "moods": moods}
+            reply_node = {
+                "post": reply_url,
+                "parent_chain": parent_chain,
+                "children": children,
+                "moods": moods,
+            }
             result.append(reply_node)
 
         return result
 
     def _find_children(self, parent_url, all_replies):
-        """Recursively find children of a specific post"""
+        """Recursively find children of a specific post with parent_chain"""
         children = []
 
         for reply in all_replies:
@@ -167,6 +176,9 @@ class RepliesView(APIView):
             ):
                 reply_url = f"{reply.profile.feed}#{reply.post_id}"
 
+                # Calculate parent chain for this reply
+                parent_chain = get_parent_chain(reply)
+
                 # Recursively find children of this reply
                 grandchildren = self._find_children(reply_url, all_replies)
 
@@ -175,6 +187,7 @@ class RepliesView(APIView):
 
                 child_node = {
                     "post": reply_url,
+                    "parent_chain": parent_chain,
                     "children": grandchildren,
                     "moods": moods,
                 }

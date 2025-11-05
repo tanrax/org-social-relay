@@ -7,6 +7,7 @@ import logging
 import hashlib
 
 from app.feeds.models import Profile, Post
+from app.feeds.utils import get_parent_chain
 
 logger = logging.getLogger(__name__)
 
@@ -72,9 +73,13 @@ class RepliesToView(APIView):
         # Build data according to README spec
         replies_data = []
         for reply in replies:
+            # Calculate parent chain for this reply
+            parent_chain = get_parent_chain(reply)
+
             reply_data = {
                 "post": f"{reply.profile.feed}#{reply.post_id}",
                 "parent": reply.reply_to,
+                "parent_chain": parent_chain,
             }
             replies_data.append(reply_data)
 

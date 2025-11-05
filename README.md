@@ -378,15 +378,24 @@ curl -G "http://localhost:8080/replies-to/" --data-urlencode "feed=https://examp
     "data": [
         {
             "post": "https://alice.org/social.org#2025-02-05T13:15:00+0100",
-            "parent": "https://example.com/social.org#2025-02-05T12:00:00+0100"
+            "parent": "https://example.com/social.org#2025-02-05T12:00:00+0100",
+            "parent_chain": [
+                "https://root.org/social.org#2025-02-05T10:00:00+0100",
+                "https://example.com/social.org#2025-02-05T12:00:00+0100"
+            ]
         },
         {
             "post": "https://bob.org/social.org#2025-02-05T14:30:00+0100",
-            "parent": "https://example.com/social.org#2025-02-05T12:00:00+0100"
+            "parent": "https://example.com/social.org#2025-02-05T12:00:00+0100",
+            "parent_chain": [
+                "https://root.org/social.org#2025-02-05T10:00:00+0100",
+                "https://example.com/social.org#2025-02-05T12:00:00+0100"
+            ]
         },
         {
             "post": "https://charlie.org/social.org#2025-02-04T11:20:00+0100",
-            "parent": "https://example.com/social.org#2025-02-04T10:00:00+0100"
+            "parent": "https://example.com/social.org#2025-02-04T10:00:00+0100",
+            "parent_chain": []
         }
     ],
     "meta": {
@@ -403,6 +412,12 @@ curl -G "http://localhost:8080/replies-to/" --data-urlencode "feed=https://examp
 The response includes:
 - `post`: The reply post URL (format: `{author_feed}#{timestamp}`)
 - `parent`: The post URL that received the reply
+- `parent_chain`: Array of post URLs from the root to the immediate parent (ordered from root to parent). Empty array if the parent is a root post.
+
+The `parent_chain` field allows you to:
+- **Find the root**: The first element is always the root post of the thread
+- **Reduce API calls**: Build the full conversation context without sequential lookups
+- **Identify relationships**: Posts sharing chain portions are in the same conversation branch
 
 To extract the author's feed from the `post` field, simply take the part before the `#` character. For example, from `https://alice.org/social.org#2025-02-05T13:15:00+0100`, the author is `https://alice.org/social.org`.
 
@@ -429,9 +444,16 @@ curl -G "http://localhost:8080/replies/" --data-urlencode "post=https://foo.org/
     "data": [
         {
             "post": "https://bar.org/social.org#2025-02-02T14:30:00+0100",
+            "parent_chain": [
+                "https://foo.org/social.org#2025-02-03T23:05:00+0100"
+            ],
             "children": [
                 {
                     "post": "https://baz.org/social.org#2025-02-03T09:45:00+0100",
+                    "parent_chain": [
+                        "https://foo.org/social.org#2025-02-03T23:05:00+0100",
+                        "https://bar.org/social.org#2025-02-02T14:30:00+0100"
+                    ],
                     "children": [],
                     "moods": [
                         {
@@ -451,9 +473,18 @@ curl -G "http://localhost:8080/replies/" --data-urlencode "post=https://foo.org/
                 },
                 {
                     "post": "https://qux.org/social.org#2025-02-04T16:20:00+0100",
+                    "parent_chain": [
+                        "https://foo.org/social.org#2025-02-03T23:05:00+0100",
+                        "https://bar.org/social.org#2025-02-02T14:30:00+0100"
+                    ],
                     "children": [
                         {
                             "post": "https://quux.org/social.org#2025-02-05T11:10:00+0100",
+                            "parent_chain": [
+                                "https://foo.org/social.org#2025-02-03T23:05:00+0100",
+                                "https://bar.org/social.org#2025-02-02T14:30:00+0100",
+                                "https://qux.org/social.org#2025-02-04T16:20:00+0100"
+                            ],
                             "children": [],
                             "moods": []
                         }
@@ -480,6 +511,9 @@ curl -G "http://localhost:8080/replies/" --data-urlencode "post=https://foo.org/
         },
         {
             "post": "https://corge.org/social.org#2025-02-03T18:00:00+0100",
+            "parent_chain": [
+                "https://foo.org/social.org#2025-02-03T23:05:00+0100"
+            ],
             "children": [],
             "moods": []
         }
@@ -493,6 +527,18 @@ curl -G "http://localhost:8080/replies/" --data-urlencode "post=https://foo.org/
     }
 }
 ```
+
+Each node in the tree includes:
+- `post`: The post URL
+- `parent_chain`: Array of post URLs from the root to the immediate parent (ordered from root to parent)
+- `children`: Array of direct reply nodes (recursive structure)
+- `moods`: Array of emoji reactions with their posts
+
+The `parent_chain` field in each node allows you to:
+- **Navigate upwards**: Quickly access any ancestor post in the thread
+- **Find the root**: The first element is always the root post
+- **Build breadcrumbs**: Show the path from root to current post
+- **Avoid circular lookups**: Get full context without additional API calls
 
 The `version` in the `meta` field is a unique identifier for the current state of replies for the given post. You can use it to check if there are new replies since your last request.
 
