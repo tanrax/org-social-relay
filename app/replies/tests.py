@@ -378,142 +378,115 @@ class RepliesViewTest(TestCase):
         self.assertIsInstance(reply_tree["moods"], list)
         self.assertEqual(len(reply_tree["moods"]), 0)
 
-    def test_replies_include_parent_chain(self):
-        """Test that all replies include parent_chain field."""
-        # Given: A post with replies exists
-        post_url = f"{self.profile1.feed}#{self.original_post.post_id}"
+    def test_meta_includes_parent_chain(self):
+        """Test that meta includes parentChain field for requested post."""
+        # Given: A post that is a reply (has parents)
+        # Create a root
+        root_post = Post.objects.create(
+            profile=self.profile1,
+            post_id="2025-01-10T10:00:00+00:00",
+            content="Root post",
+        )
+        # Create a reply to root
+        reply_post = Post.objects.create(
+            profile=self.profile2,
+            post_id="2025-01-10T11:00:00+00:00",
+            content="Reply to root",
+            reply_to=f"{self.profile1.feed}#{root_post.post_id}",
+        )
 
-        # When: We request replies for the post
+        post_url = f"{self.profile2.feed}#{reply_post.post_id}"
+
+        # When: We request replies for the reply_post
         response = self.client.get(self.replies_url, {"post": post_url})
 
-        # Then: All replies should have parent_chain field
+        # Then: meta should have parentChain
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("meta", response.data)
+        self.assertIn("parentChain", response.data["meta"])
+        self.assertIsInstance(response.data["meta"]["parentChain"], list)
+
+        # Should have 1 parent (the root)
+        parent_chain = response.data["meta"]["parentChain"]
+        self.assertEqual(len(parent_chain), 1)
+        self.assertEqual(parent_chain[0], f"{self.profile1.feed}#{root_post.post_id}")
+
+    def test_parent_chain_empty_for_root_post(self):
+        """Test that parentChain is empty array for root posts."""
+        # Given: A root post (no parents)
+        post_url = f"{self.profile1.feed}#{self.original_post.post_id}"
+
+        # When: We request replies for the root post
+        response = self.client.get(self.replies_url, {"post": post_url})
+
+        # Then: parentChain should be empty
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        parent_chain = response.data["meta"]["parentChain"]
+        self.assertEqual(len(parent_chain), 0)
+        self.assertEqual(parent_chain, [])
+
+    def test_parent_chain_order_in_meta(self):
+        """Test that parentChain in meta is ordered from root to immediate parent."""
+        # Given: A deep chain: root -> reply_a -> reply_b -> reply_c
+        root = Post.objects.create(
+            profile=self.profile1,
+            post_id="2025-01-11T10:00:00+00:00",
+            content="Root",
+        )
+        reply_a = Post.objects.create(
+            profile=self.profile2,
+            post_id="2025-01-11T11:00:00+00:00",
+            content="Reply A",
+            reply_to=f"{self.profile1.feed}#{root.post_id}",
+        )
+        reply_b = Post.objects.create(
+            profile=self.profile3,
+            post_id="2025-01-11T12:00:00+00:00",
+            content="Reply B",
+            reply_to=f"{self.profile2.feed}#{reply_a.post_id}",
+        )
+        reply_c = Post.objects.create(
+            profile=self.profile1,
+            post_id="2025-01-11T13:00:00+00:00",
+            content="Reply C",
+            reply_to=f"{self.profile3.feed}#{reply_b.post_id}",
+        )
+
+        post_url = f"{self.profile1.feed}#{reply_c.post_id}"
+
+        # When: We request replies for reply_c
+        response = self.client.get(self.replies_url, {"post": post_url})
+
+        # Then: parentChain should be ordered: root -> reply_a -> reply_b
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        parent_chain = response.data["meta"]["parentChain"]
+
+        self.assertEqual(len(parent_chain), 3)
+        self.assertEqual(parent_chain[0], f"{self.profile1.feed}#{root.post_id}")
+        self.assertEqual(parent_chain[1], f"{self.profile2.feed}#{reply_a.post_id}")
+        self.assertEqual(parent_chain[2], f"{self.profile3.feed}#{reply_b.post_id}")
+
+    def test_nodes_do_not_have_parent_chain(self):
+        """Test that tree nodes do not include parentChain field."""
+        # Given: A post with replies
+        post_url = f"{self.profile1.feed}#{self.original_post.post_id}"
+
+        # When: We request replies
+        response = self.client.get(self.replies_url, {"post": post_url})
+
+        # Then: Data nodes should not have parentChain field
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.data["data"]
 
         for reply in data:
-            self.assertIn("parent_chain", reply)
-            self.assertIsInstance(reply["parent_chain"], list)
+            self.assertNotIn("parentChain", reply)
+            self.assertNotIn("parent_chain", reply)
+            # Only post, children, and moods
+            self.assertIn("post", reply)
+            self.assertIn("children", reply)
+            self.assertIn("moods", reply)
 
-            # Check nested replies also have parent_chain
+            # Check nested replies also don't have parentChain
             for child in reply["children"]:
-                self.assertIn("parent_chain", child)
-                self.assertIsInstance(child["parent_chain"], list)
-
-    def test_parent_chain_order_from_root_to_parent(self):
-        """Test that parent_chain is ordered from root to immediate parent."""
-        # Given: A deep reply chain exists
-        # Chain: original_post -> reply1 -> nested_reply1 -> deep_nested_reply
-        post_url = f"{self.profile1.feed}#{self.original_post.post_id}"
-
-        # When: We request replies
-        response = self.client.get(self.replies_url, {"post": post_url})
-
-        # Then: Find the deeply nested reply
-        data = response.data["data"]
-
-        # Navigate to reply1
-        reply1_node = None
-        for reply in data:
-            if reply["post"] == f"{self.profile2.feed}#{self.reply1.post_id}":
-                reply1_node = reply
-                break
-
-        self.assertIsNotNone(reply1_node)
-
-        # Navigate to nested_reply1
-        nested_reply1_node = None
-        for child in reply1_node["children"]:
-            if child["post"] == f"{self.profile3.feed}#{self.nested_reply1.post_id}":
-                nested_reply1_node = child
-                break
-
-        self.assertIsNotNone(nested_reply1_node)
-
-        # Navigate to deep_nested_reply
-        deep_nested_node = None
-        for grandchild in nested_reply1_node["children"]:
-            if (
-                grandchild["post"]
-                == f"{self.profile2.feed}#{self.deep_nested_reply.post_id}"
-            ):
-                deep_nested_node = grandchild
-                break
-
-        self.assertIsNotNone(deep_nested_node)
-
-        # Then: Verify parent_chain is ordered from root to immediate parent
-        parent_chain = deep_nested_node["parent_chain"]
-
-        # Should have 3 parents: original -> reply1 -> nested_reply1
-        self.assertEqual(len(parent_chain), 3)
-
-        # Check order: root first, then reply1, then nested_reply1
-        self.assertEqual(
-            parent_chain[0], f"{self.profile1.feed}#{self.original_post.post_id}"
-        )  # Root
-        self.assertEqual(
-            parent_chain[1], f"{self.profile2.feed}#{self.reply1.post_id}"
-        )  # First reply
-        self.assertEqual(
-            parent_chain[2], f"{self.profile3.feed}#{self.nested_reply1.post_id}"
-        )  # Nested reply
-
-    def test_parent_chain_direct_reply_to_root(self):
-        """Test that direct reply to root has single-element parent_chain."""
-        # Given: A post with direct replies
-        post_url = f"{self.profile1.feed}#{self.original_post.post_id}"
-
-        # When: We request replies
-        response = self.client.get(self.replies_url, {"post": post_url})
-
-        # Then: Direct replies should have parent_chain with only root
-        data = response.data["data"]
-
-        reply1_node = None
-        for reply in data:
-            if reply["post"] == f"{self.profile2.feed}#{self.reply1.post_id}":
-                reply1_node = reply
-                break
-
-        self.assertIsNotNone(reply1_node)
-
-        # Parent chain should contain only the root post
-        self.assertEqual(len(reply1_node["parent_chain"]), 1)
-        self.assertEqual(
-            reply1_node["parent_chain"][0],
-            f"{self.profile1.feed}#{self.original_post.post_id}",
-        )
-
-    def test_parent_chain_consistency_across_siblings(self):
-        """Test that sibling replies have consistent parent_chain up to their common ancestor."""
-        # Given: Two sibling replies to the same parent
-        post_url = f"{self.profile1.feed}#{self.original_post.post_id}"
-
-        # When: We request replies
-        response = self.client.get(self.replies_url, {"post": post_url})
-
-        # Then: Both siblings should share the same parent in their chain
-        data = response.data["data"]
-
-        reply1_node = None
-        for reply in data:
-            if reply["post"] == f"{self.profile2.feed}#{self.reply1.post_id}":
-                reply1_node = reply
-                break
-
-        # Get two siblings (nested_reply1 and nested_reply2)
-        nested1_node = None
-        nested2_node = None
-        for child in reply1_node["children"]:
-            if child["post"] == f"{self.profile3.feed}#{self.nested_reply1.post_id}":
-                nested1_node = child
-            elif child["post"] == f"{self.profile1.feed}#{self.nested_reply2.post_id}":
-                nested2_node = child
-
-        self.assertIsNotNone(nested1_node)
-        self.assertIsNotNone(nested2_node)
-
-        # Both siblings should have the same parent_chain (same ancestors)
-        self.assertEqual(len(nested1_node["parent_chain"]), 2)
-        self.assertEqual(len(nested2_node["parent_chain"]), 2)
-        self.assertEqual(nested1_node["parent_chain"], nested2_node["parent_chain"])
+                self.assertNotIn("parentChain", child)
+                self.assertNotIn("parent_chain", child)

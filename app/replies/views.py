@@ -98,6 +98,9 @@ class RepliesView(APIView):
         # Find moods for the original post
         moods = self._find_moods(original_post_url, replies)
 
+        # Calculate parent chain for the original post
+        parent_chain = get_parent_chain(original_post)
+
         # Generate version hash
         version_string = f"{original_post.updated_at.isoformat()}_{len(replies)}"
         version = hashlib.md5(version_string.encode()).hexdigest()[:8]
@@ -115,6 +118,7 @@ class RepliesView(APIView):
                 "parent": original_post_url,
                 "version": version,
                 "moods": moods,
+                "parentChain": parent_chain,
             },
             "_links": {
                 "self": {"href": f"/replies/?post={encoded_post_url}", "method": "GET"}
@@ -127,7 +131,7 @@ class RepliesView(APIView):
         return Response(response_data, status=status.HTTP_200_OK)
 
     def _build_replies_tree(self, all_replies, parent_url):
-        """Build a tree structure of replies with moods and parent_chain"""
+        """Build a tree structure of replies with moods"""
         # Create a map of all posts by their URL
         posts_map = {}
         for reply in all_replies:
@@ -146,9 +150,6 @@ class RepliesView(APIView):
         for reply in direct_replies:
             reply_url = f"{reply.profile.feed}#{reply.post_id}"
 
-            # Calculate parent chain for this reply
-            parent_chain = get_parent_chain(reply)
-
             # Recursively find children of this reply
             children = self._find_children(reply_url, all_replies)
 
@@ -157,7 +158,6 @@ class RepliesView(APIView):
 
             reply_node = {
                 "post": reply_url,
-                "parent_chain": parent_chain,
                 "children": children,
                 "moods": moods,
             }
@@ -166,7 +166,7 @@ class RepliesView(APIView):
         return result
 
     def _find_children(self, parent_url, all_replies):
-        """Recursively find children of a specific post with parent_chain"""
+        """Recursively find children of a specific post"""
         children = []
 
         for reply in all_replies:
@@ -176,9 +176,6 @@ class RepliesView(APIView):
             ):
                 reply_url = f"{reply.profile.feed}#{reply.post_id}"
 
-                # Calculate parent chain for this reply
-                parent_chain = get_parent_chain(reply)
-
                 # Recursively find children of this reply
                 grandchildren = self._find_children(reply_url, all_replies)
 
@@ -187,7 +184,6 @@ class RepliesView(APIView):
 
                 child_node = {
                     "post": reply_url,
-                    "parent_chain": parent_chain,
                     "children": grandchildren,
                     "moods": moods,
                 }
