@@ -92,7 +92,10 @@ class MentionsViewTest(TestCase):
         meta = response.data["meta"]
         self.assertEqual(meta["feed"], feed_url)
         self.assertEqual(meta["total"], 2)
-        self.assertIn("version", meta)
+
+        # Then: Should have ETag and Last-Modified headers
+        self.assertIn("ETag", response)
+        self.assertIn("Last-Modified", response)
 
     def test_get_mentions_no_mentions(self):
         """Test GET /mentions/ returns empty array for profile with no mentions."""
@@ -112,7 +115,10 @@ class MentionsViewTest(TestCase):
         meta = response.data["meta"]
         self.assertEqual(meta["feed"], feed_url)
         self.assertEqual(meta["total"], 0)
-        self.assertIn("version", meta)
+
+        # Then: Should have ETag and Last-Modified headers
+        self.assertIn("ETag", response)
+        self.assertIn("Last-Modified", response)
 
     def test_get_mentions_nonexistent_profile(self):
         """Test GET /mentions/ returns 404 for nonexistent profile."""

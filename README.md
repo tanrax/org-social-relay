@@ -114,6 +114,31 @@ You can use:
 - Manual encoding: `curl "http://localhost:8080/endpoint/?param=encoded_url"`
 - curl's automatic encoding: `curl -G "http://localhost:8080/endpoint/" --data-urlencode "param=unencoded_url"`
 
+### HTTP Caching
+
+All Relay endpoints that return data support HTTP caching through standard headers:
+
+- **`ETag`**: A unique identifier for the current state of the resource (e.g., `"a1b2c3d4"`). Use this to check if the data has changed since your last request.
+- **`Last-Modified`**: The timestamp when the resource was last updated (e.g., `Wed, 01 Nov 2025 10:15:00 GMT`).
+
+**Usage:**
+
+Clients should store these headers and use them in subsequent requests with `If-None-Match` (for ETag) or `If-Modified-Since` (for Last-Modified) to avoid fetching unchanged data. When the data hasn't changed, the server will return a `304 Not Modified` response.
+
+**Example:**
+```sh
+# Initial request
+curl -i http://localhost:8080/mentions/?feed=https://example.com/social.org
+
+# Response headers include:
+# ETag: "abc123"
+# Last-Modified: Wed, 01 Nov 2025 10:15:00 GMT
+
+# Subsequent request with ETag
+curl -H 'If-None-Match: "abc123"' http://localhost:8080/mentions/?feed=https://example.com/social.org
+# Returns 304 Not Modified if data hasn't changed
+```
+
 ### Root
 
 `/` - Basic information about the relay.
@@ -235,8 +260,7 @@ curl -G "http://localhost:8080/notifications/" --data-urlencode "feed=https://ex
             "mentions": 1,
             "reactions": 2,
             "replies": 1
-        },
-        "version": "123"
+        }
     },
     "_links": {
         "self": {"href": "/notifications/?feed=https%3A%2F%2Fexample.com%2Fsocial.org", "method": "GET"},
@@ -258,8 +282,6 @@ Each notification includes:
 **Reactions and replies** have `parent` to indicate which of your posts received the reaction/reply.
 
 To extract the author's feed from the `post` field, simply take the part before the `#` character. For example, from `https://alice.org/social.org#2025-02-05T13:15:00+0100`, the author is `https://alice.org/social.org`.
-
-The `version` in the `meta` field is a unique identifier for the current state of all notifications. You can use it to check if there are new notifications since your last request.
 
 The `by_type` breakdown in `meta` allows you to show notification counts per type in your UI.
 
@@ -290,16 +312,13 @@ curl -G "http://localhost:8080/mentions/" --data-urlencode "feed=https://example
     ],
     "meta": {
         "feed": "https://example.com/social.org",
-        "total": 3,
-        "version": "123"
+        "total": 3
     },
     "_links": {
         "self": {"href": "/mentions/?feed=https%3A%2F%2Fexample.com%2Fsocial.org", "method": "GET"}
     }
 }
 ```
-
-The `version` in the `meta` field is a unique identifier for the current state of mentions for the given feed. You can use it to check if there are new mentions since your last request.
 
 ### Get reactions
 
@@ -336,8 +355,7 @@ curl -G "http://localhost:8080/reactions/" --data-urlencode "feed=https://exampl
     ],
     "meta": {
         "feed": "https://example.com/social.org",
-        "total": 3,
-        "version": "123"
+        "total": 3
     },
     "_links": {
         "self": {"href": "/reactions/?feed=https%3A%2F%2Fexample.com%2Fsocial.org", "method": "GET"}
@@ -351,8 +369,6 @@ The response includes:
 - `parent`: The post URL that received the reaction
 
 To extract the author's feed from the `post` field, simply take the part before the `#` character. For example, from `https://alice.org/social.org#2025-02-05T13:15:00+0100`, the author is `https://alice.org/social.org`.
-
-The `version` in the `meta` field is a unique identifier for the current state of reactions for the given feed. You can use it to check if there are new reactions since your last request.
 
 **Note:** According to Org Social specification, reactions are posts with:
 - `:REPLY_TO:` property pointing to the reacted post
@@ -391,8 +407,7 @@ curl -G "http://localhost:8080/replies-to/" --data-urlencode "feed=https://examp
     ],
     "meta": {
         "feed": "https://example.com/social.org",
-        "total": 3,
-        "version": "123"
+        "total": 3
     },
     "_links": {
         "self": {"href": "/replies-to/?feed=https%3A%2F%2Fexample.com%2Fsocial.org", "method": "GET"}
@@ -405,8 +420,6 @@ The response includes:
 - `parent`: The post URL that received the reply
 
 To extract the author's feed from the `post` field, simply take the part before the `#` character. For example, from `https://alice.org/social.org#2025-02-05T13:15:00+0100`, the author is `https://alice.org/social.org`.
-
-The `version` in the `meta` field is a unique identifier for the current state of replies for the given feed. You can use it to check if there are new replies since your last request.
 
 **Note:** This endpoint shows direct replies to your posts. To see the full conversation thread of a specific post, use the `/replies/?post={post_url}` endpoint instead.
 
@@ -486,7 +499,6 @@ curl -G "http://localhost:8080/replies/" --data-urlencode "post=https://foo.org/
     ],
     "meta": {
         "parent": "https://foo.org/social.org#2025-02-03T23:05:00+0100",
-        "version": "123",
         "parentChain": [
             "https://root.org/social.org#2025-02-01T10:00:00+0100",
             "https://foo.org/social.org#2025-02-03T23:05:00+0100"
@@ -502,8 +514,6 @@ Each node in the tree includes:
 - `post`: The post URL
 - `children`: Array of direct reply nodes (recursive structure)
 - `moods`: Array of emoji reactions with their posts
-
-The `version` in the `meta` field is a unique identifier for the current state of replies for the given post. You can use it to check if there are new replies since your last request.
 
 ### Search
 
@@ -529,7 +539,6 @@ Optional parameters:
         "..."
     ],
     "meta": {
-        "version": "123",
         "query": "example",
         "total": 150,
         "page": 1,
@@ -544,8 +553,6 @@ Optional parameters:
     }
 }
 ```
-
-The `version` in the `meta` field is a unique identifier for the current state of the search index. You can use it to check if there are new results since your last request.
 
 ### List groups
 
@@ -632,8 +639,7 @@ curl http://localhost:8080/groups/emacs/
             "https://alice.org/social.org",
             "https://bob.org/social.org",
             "https://charlie.org/social.org"
-        ],
-        "version": "123"
+        ]
     },
     "_links": {
         "self": {"href": "/groups/emacs/", "method": "GET"},
@@ -641,8 +647,6 @@ curl http://localhost:8080/groups/emacs/
     }
 }
 ```
-
-The `version` in the `meta` field is a unique identifier for the current state of messages in the group. You can use it to check if there are new messages since your last request.
 
 ### List polls
 
@@ -662,8 +666,7 @@ curl http://localhost:8080/polls/
         "https://baz.org/social.org#2025-02-05T08:30:00+0100"
     ],
     "meta": {
-        "total": 3,
-        "version": "123"
+        "total": 3
     },
     "_links": {
         "self": {"href": "/polls/", "method": "GET"},
@@ -671,8 +674,6 @@ curl http://localhost:8080/polls/
     }
 }
 ```
-
-The `version` in the `meta` field is a unique identifier for the current state of polls. You can use it to check if there are new polls since your last request.
 
 ### Get poll votes
 
@@ -717,8 +718,7 @@ curl -G "http://localhost:8080/polls/votes/" --data-urlencode "post=https://foo.
     ],
     "meta": {
         "poll": "https://foo.org/social.org#2025-02-03T23:05:00+0100",
-        "total_votes": 4,
-        "version": "123"
+        "total_votes": 4
     },
     "_links": {
         "self": {"href": "/polls/votes/?post=https%3A%2F%2Ffoo.org%2Fsocial.org%232025-02-03T23%3A05%3A00%2B0100", "method": "GET"},
@@ -726,8 +726,6 @@ curl -G "http://localhost:8080/polls/votes/" --data-urlencode "post=https://foo.
     }
 }
 ```
-
-The `version` in the `meta` field is a unique identifier for the current state of votes for the given poll. You can use it to check if there are new votes since your last request.
 
 ## Groups Configuration
 

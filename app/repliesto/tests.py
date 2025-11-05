@@ -107,7 +107,10 @@ class RepliesToViewTest(TestCase):
         meta = response.data["meta"]
         self.assertEqual(meta["feed"], feed_url)
         self.assertEqual(meta["total"], 2)
-        self.assertIn("version", meta)
+
+        # Then: Should have ETag and Last-Modified headers
+        self.assertIn("ETag", response)
+        self.assertIn("Last-Modified", response)
 
     def test_get_replies_no_replies(self):
         """Test GET /replies-to/ returns empty array for profile with no replies."""
@@ -127,7 +130,10 @@ class RepliesToViewTest(TestCase):
         meta = response.data["meta"]
         self.assertEqual(meta["feed"], feed_url)
         self.assertEqual(meta["total"], 0)
-        self.assertIn("version", meta)
+
+        # Then: Should have ETag and Last-Modified headers
+        self.assertIn("ETag", response)
+        self.assertIn("Last-Modified", response)
 
     def test_get_replies_nonexistent_profile(self):
         """Test GET /replies-to/ returns 404 for nonexistent profile."""

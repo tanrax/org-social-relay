@@ -1,7 +1,7 @@
 from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
-from .models import Profile, Post, Mention
+from app.feeds.models import Profile, Post, Mention
 
 
 class MentionsViewTest(TestCase):
@@ -88,9 +88,12 @@ class MentionsViewTest(TestCase):
         meta = response.data["meta"]
         self.assertIn("feed", meta)
         self.assertIn("total", meta)
-        self.assertIn("version", meta)
         self.assertEqual(meta["feed"], "https://alice.example.com/social.org")
         self.assertEqual(meta["total"], 2)
+
+        # Then: Should have ETag and Last-Modified headers
+        self.assertIn("ETag", response)
+        self.assertIn("Last-Modified", response)
 
     def test_get_mentions_missing_feed_parameter(self):
         """Test GET /mentions returns error when feed parameter is missing."""
@@ -190,7 +193,10 @@ class MentionsViewTest(TestCase):
         meta = response.data["meta"]
         self.assertIn("feed", meta)
         self.assertIn("total", meta)
-        self.assertIn("version", meta)
+
+        # Then: Should have ETag and Last-Modified headers
+        self.assertIn("ETag", response)
+        self.assertIn("Last-Modified", response)
 
     def test_mentions_view_only_get_allowed(self):
         """Test that only GET method is allowed on mentions endpoint."""

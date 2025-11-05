@@ -3,7 +3,6 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.core.cache import cache
 import logging
-import hashlib
 
 from app.feeds.models import Profile, Post
 
@@ -77,10 +76,6 @@ class ReactionsView(APIView):
             }
             reactions_data.append(reaction_data)
 
-        # Generate version hash based on profile's last update and reactions count
-        version_string = f"{profile.last_updated.isoformat()}_{len(reactions_data)}"
-        version = hashlib.md5(version_string.encode()).hexdigest()[:8]
-
         # URL encode the feed_url for the self link
         from urllib.parse import quote
 
@@ -93,7 +88,6 @@ class ReactionsView(APIView):
             "meta": {
                 "feed": feed_url,
                 "total": len(reactions_data),
-                "version": version,
             },
             "_links": {
                 "self": {

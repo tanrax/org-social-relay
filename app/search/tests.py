@@ -112,7 +112,10 @@ class SearchViewTest(TestCase):
         self.assertEqual(meta["perPage"], 10)
         self.assertFalse(meta["hasNext"])
         self.assertFalse(meta["hasPrevious"])
-        self.assertIn("version", meta)
+
+        # Then: Should have ETag and Last-Modified headers
+        self.assertIn("ETag", response)
+        self.assertIn("Last-Modified", response)
 
     def test_search_by_tag_success(self):
         """Test GET /search/?tag=<tag> returns posts with specific tag."""
@@ -278,7 +281,6 @@ class SearchViewTest(TestCase):
         # Then: Meta should contain all required fields
         meta = response.data["meta"]
         required_meta_fields = [
-            "version",
             "query",
             "total",
             "page",
@@ -288,6 +290,10 @@ class SearchViewTest(TestCase):
         ]
         for field in required_meta_fields:
             self.assertIn(field, meta)
+
+        # Then: Should have ETag and Last-Modified headers
+        self.assertIn("ETag", response)
+        self.assertIn("Last-Modified", response)
 
         # Check that _links exists
         self.assertIn("_links", response.data)

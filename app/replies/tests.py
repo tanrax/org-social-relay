@@ -104,7 +104,10 @@ class RepliesViewTest(TestCase):
         # Then: Meta should contain correct information
         meta = response.data["meta"]
         self.assertEqual(meta["parent"], post_url)
-        self.assertIn("version", meta)
+
+        # Then: Should have ETag and Last-Modified headers
+        self.assertIn("ETag", response)
+        self.assertIn("Last-Modified", response)
 
     def test_get_replies_nested_structure(self):
         """Test that replies are properly nested in tree structure."""
@@ -191,7 +194,10 @@ class RepliesViewTest(TestCase):
         # Then: Meta should still be present
         meta = response.data["meta"]
         self.assertEqual(meta["parent"], post_url)
-        self.assertIn("version", meta)
+
+        # Then: Should have ETag and Last-Modified headers
+        self.assertIn("ETag", response)
+        self.assertIn("Last-Modified", response)
 
     def test_replies_response_format_compliance(self):
         """Test replies response format compliance with README specification."""

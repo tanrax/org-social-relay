@@ -3,7 +3,6 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.core.cache import cache
 import logging
-import hashlib
 
 from app.feeds.models import Post, Profile
 from app.feeds.utils import get_parent_chain
@@ -101,10 +100,6 @@ class RepliesView(APIView):
         # Calculate parent chain for the original post
         parent_chain = get_parent_chain(original_post)
 
-        # Generate version hash
-        version_string = f"{original_post.updated_at.isoformat()}_{len(replies)}"
-        version = hashlib.md5(version_string.encode()).hexdigest()[:8]
-
         # URL encode the post_url for the self link
         from urllib.parse import quote
 
@@ -116,7 +111,6 @@ class RepliesView(APIView):
             "data": replies_tree,
             "meta": {
                 "parent": original_post_url,
-                "version": version,
                 "moods": moods,
                 "parentChain": parent_chain,
             },

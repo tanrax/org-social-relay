@@ -83,6 +83,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
+    "app.feeds.middleware.RelayMetadataMiddleware",  # Add global ETag/Last-Modified headers
 ]
 
 ROOT_URLCONF = "core.urls"

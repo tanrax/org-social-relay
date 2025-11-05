@@ -1,4 +1,3 @@
-import hashlib
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -128,10 +127,6 @@ class GroupMessagesView(APIView):
         member_profiles = Profile.objects.filter(posts__group=group_slug).distinct()
         members_list = [profile.feed for profile in member_profiles]
 
-        # Generate version hash
-        version_string = "".join(sorted([p["post"] for p in messages_tree]))
-        version = hashlib.sha256(version_string.encode()).hexdigest()[:8]
-
         # URL encode the group_slug for the join link template
         from urllib.parse import quote
 
@@ -144,7 +139,6 @@ class GroupMessagesView(APIView):
             "meta": {
                 "group": group_display_name,
                 "members": members_list,
-                "version": version,
             },
             "_links": {
                 "self": {"href": f"/groups/{encoded_group_slug}/", "method": "GET"},

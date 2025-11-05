@@ -119,7 +119,10 @@ class GroupMessagesViewTest(TestCase):
         # Check meta - should contain display name, not slug
         self.assertEqual(response.data["meta"]["group"], "Emacs")
         self.assertIn("members", response.data["meta"])
-        self.assertIn("version", response.data["meta"])
+
+        # Then: Should have ETag and Last-Modified headers
+        self.assertIn("ETag", response)
+        self.assertIn("Last-Modified", response)
 
     @override_settings(ENABLED_GROUPS=["emacs"], GROUPS_MAP={"emacs": "Emacs"})
     def test_get_group_messages_with_replies(self):
@@ -206,10 +209,8 @@ class GroupMessagesViewTest(TestCase):
         self.assertEqual(response1.status_code, status.HTTP_200_OK)
         self.assertEqual(response2.status_code, status.HTTP_200_OK)
 
-        # And version should be the same (indicating cache hit)
-        self.assertEqual(
-            response1.data["meta"]["version"], response2.data["meta"]["version"]
-        )
+        # And ETag should be the same (indicating cache hit)
+        self.assertEqual(response1["ETag"], response2["ETag"])
 
 
 class GroupsIntegrationTest(TestCase):

@@ -108,17 +108,12 @@ class SearchView(APIView):
         if per_page != 10:
             base_url += f"&perPage={per_page}"
 
-        # Generate version hash based on search parameters and total results
-        version_string = f"{search_term}_{total_posts}_{posts_query.first().updated_at.isoformat() if posts_query.exists() else 'empty'}"
-        version = hashlib.md5(version_string.encode()).hexdigest()[:8]
-
         # Build response
         response_data = {
             "type": "Success",
             "errors": [],
             "data": data,
             "meta": {
-                "version": version,
                 search_type: search_value,
                 "total": total_posts,
                 "page": page,

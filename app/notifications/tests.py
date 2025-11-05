@@ -104,7 +104,10 @@ class NotificationsViewTest(TestCase):
         self.assertEqual(meta["by_type"]["mentions"], 1)
         self.assertEqual(meta["by_type"]["reactions"], 1)
         self.assertEqual(meta["by_type"]["replies"], 1)
-        self.assertIn("version", meta)
+
+        # Then: Should have ETag and Last-Modified headers
+        self.assertIn("ETag", response)
+        self.assertIn("Last-Modified", response)
 
     def test_get_notifications_filtered_by_mention(self):
         """Test GET /notifications/?feed=<feed_url>&type=mention returns only mentions."""

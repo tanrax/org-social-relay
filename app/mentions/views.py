@@ -3,7 +3,6 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.core.cache import cache
 import logging
-import hashlib
 
 from app.feeds.models import Profile, Mention
 
@@ -61,10 +60,6 @@ class MentionsView(APIView):
             post_url = f"{mention.post.profile.feed}#{mention.post.post_id}"
             mentions_data.append(post_url)
 
-        # Generate version hash based on profile's last update and mentions count
-        version_string = f"{profile.last_updated.isoformat()}_{len(mentions_data)}"
-        version = hashlib.md5(version_string.encode()).hexdigest()[:8]
-
         # URL encode the feed_url for the self link
         from urllib.parse import quote
 
@@ -74,7 +69,7 @@ class MentionsView(APIView):
             "type": "Success",
             "errors": [],
             "data": mentions_data,
-            "meta": {"feed": feed_url, "total": len(mentions_data), "version": version},
+            "meta": {"feed": feed_url, "total": len(mentions_data)},
             "_links": {
                 "self": {"href": f"/mentions/?feed={encoded_feed_url}", "method": "GET"}
             },

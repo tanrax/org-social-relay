@@ -642,6 +642,13 @@ def scan_feeds():
         f"Posts updated: {posts_updated}"
     )
 
+    # Update global relay metadata BEFORE clearing cache
+    # This ensures the new ETag/Last-Modified are ready when cache is cleared
+    from .models import RelayMetadata
+
+    RelayMetadata.update_global_metadata()
+    logger.info("Updated global relay metadata (ETag and Last-Modified)")
+
     # Clear cache AFTER scanning to ensure next requests get fresh data
     # This way during scan users see complete old cached data (consistent),
     # and after scan they see complete new data (also consistent)

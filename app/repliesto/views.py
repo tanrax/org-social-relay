@@ -4,7 +4,6 @@ from rest_framework import status
 from django.core.cache import cache
 from django.db.models import Q
 import logging
-import hashlib
 
 from app.feeds.models import Profile, Post
 
@@ -78,10 +77,6 @@ class RepliesToView(APIView):
             }
             replies_data.append(reply_data)
 
-        # Generate version hash based on profile's last update and replies count
-        version_string = f"{profile.last_updated.isoformat()}_{len(replies_data)}"
-        version = hashlib.md5(version_string.encode()).hexdigest()[:8]
-
         # URL encode the feed_url for the self link
         from urllib.parse import quote
 
@@ -91,7 +86,7 @@ class RepliesToView(APIView):
             "type": "Success",
             "errors": [],
             "data": replies_data,
-            "meta": {"feed": feed_url, "total": len(replies_data), "version": version},
+            "meta": {"feed": feed_url, "total": len(replies_data)},
             "_links": {
                 "self": {
                     "href": f"/replies-to/?feed={encoded_feed_url}",

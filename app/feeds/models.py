@@ -1,4 +1,7 @@
 from django.db import models
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class Profile(models.Model):
@@ -225,3 +228,60 @@ class Feed(models.Model):
 
     def __str__(self):
         return self.url
+
+
+class RelayMetadata(models.Model):
+    """
+    Global metadata for the relay - used for HTTP caching headers.
+    This model ensures all endpoints return consistent ETag and Last-Modified headers.
+    Updated by the scan_feeds task after each scan.
+    """
+
+    key = models.CharField(max_length=50, unique=True, primary_key=True)
+    etag = models.CharField(max_length=16, help_text="Global ETag for HTTP caching")
+    last_modified = models.DateTimeField(
+        help_text="Global Last-Modified timestamp for HTTP caching"
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Relay Metadata"
+        verbose_name_plural = "Relay Metadata"
+
+    def __str__(self):
+        return f"RelayMetadata({self.key}): ETag={self.etag}"
+
+    @classmethod
+    def get_global_metadata(cls):
+        """
+        Get or create the global relay metadata.
+        Returns a tuple of (etag, last_modified).
+        """
+        import hashlib
+        from django.utils import timezone
+
+        metadata, created = cls.objects.get_or_create(
+            key="global",
+            defaults={
+                "etag": hashlib.md5(str(timezone.now()).encode()).hexdigest()[:8],
+                "last_modified": timezone.now(),
+            },
+        )
+        return metadata.etag, metadata.last_modified
+
+    @classmethod
+    def update_global_metadata(cls):
+        """
+        Update the global ETag and Last-Modified.
+        Called by scan_feeds task after scanning all feeds.
+        """
+        import hashlib
+        from django.utils import timezone
+
+        now = timezone.now()
+        etag = hashlib.md5(str(now.timestamp()).encode()).hexdigest()[:8]
+
+        cls.objects.update_or_create(
+            key="global", defaults={"etag": etag, "last_modified": now}
+        )
+        logger.info(f"Updated global relay metadata: ETag={etag}, Last-Modified={now}")

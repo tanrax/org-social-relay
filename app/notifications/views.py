@@ -4,7 +4,6 @@ from rest_framework import status
 from django.core.cache import cache
 from django.db.models import Q
 import logging
-import hashlib
 
 from app.feeds.models import Profile, Post, Mention
 
@@ -135,10 +134,6 @@ class NotificationsView(APIView):
         for notification in notifications_data:
             del notification["_sort_key"]
 
-        # Generate version hash based on profile's last update and notification counts
-        version_string = f"{profile.last_updated.isoformat()}_{sum(counts.values())}"
-        version = hashlib.md5(version_string.encode()).hexdigest()[:8]
-
         # URL encode the feed_url for links
         from urllib.parse import quote
 
@@ -152,7 +147,6 @@ class NotificationsView(APIView):
                 "feed": feed_url,
                 "total": len(notifications_data),
                 "by_type": counts,
-                "version": version,
             },
             "_links": {
                 "self": {

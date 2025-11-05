@@ -98,10 +98,13 @@ class PollsViewTest(TestCase):
             self.assertIsInstance(poll_url, str)
             self.assertIn("#", poll_url)  # Should contain the # separator
 
-        # Then: Meta should contain total and version
+        # Then: Meta should contain total
         self.assertIn("meta", response.data)
         self.assertEqual(response.data["meta"]["total"], 2)
-        self.assertIn("version", response.data["meta"])
+
+        # Then: Should have ETag and Last-Modified headers
+        self.assertIn("ETag", response)
+        self.assertIn("Last-Modified", response)
 
     def test_get_polls_for_specific_feed(self):
         """Test GET /polls?feed=<url> returns polls for specific feed."""
@@ -120,7 +123,10 @@ class PollsViewTest(TestCase):
         # Then: Response should contain feed metadata
         self.assertEqual(response.data["meta"]["feed"], self.profile1.feed)
         self.assertEqual(response.data["meta"]["total"], 2)
-        self.assertIn("version", response.data["meta"])
+
+        # Then: Should have ETag and Last-Modified headers
+        self.assertIn("ETag", response)
+        self.assertIn("Last-Modified", response)
 
     def test_get_polls_for_nonexistent_feed(self):
         """Test GET /polls?feed=<nonexistent> returns 404."""
@@ -336,7 +342,10 @@ class PollVotesViewTest(TestCase):
         meta = response.data["meta"]
         self.assertEqual(meta["poll"], post_url)
         self.assertEqual(meta["total_votes"], 2)
-        self.assertIn("version", meta)
+
+        # Then: Should have ETag and Last-Modified headers
+        self.assertIn("ETag", response)
+        self.assertIn("Last-Modified", response)
 
     def test_get_poll_votes_nonexistent_poll(self):
         """Test GET /polls/votes/ returns 404 for nonexistent poll."""

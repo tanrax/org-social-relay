@@ -60,3 +60,30 @@ def get_parent_chain(post: Post, max_depth: int = 100) -> List[str]:
     chain.reverse()
 
     return chain
+
+
+def add_relay_headers(response):
+    """
+    Add global ETag and Last-Modified headers to a response.
+    This ensures all endpoints return consistent caching headers.
+
+    The headers are retrieved from the RelayMetadata model, which is updated
+    by the scan_feeds task after each scan. This way:
+    - All endpoints return the same ETag and Last-Modified
+    - Headers are added even when serving cached responses
+    - The ETag changes only when feeds are actually scanned
+
+    Args:
+        response: Django REST framework Response object
+
+    Returns:
+        The same response object with headers added
+    """
+    from app.feeds.models import RelayMetadata
+
+    etag, last_modified = RelayMetadata.get_global_metadata()
+
+    response["ETag"] = f'"{etag}"'
+    response["Last-Modified"] = last_modified.strftime("%a, %d %b %Y %H:%M:%S GMT")
+
+    return response

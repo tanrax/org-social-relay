@@ -101,7 +101,10 @@ class ReactionsViewTest(TestCase):
         meta = response.data["meta"]
         self.assertEqual(meta["feed"], feed_url)
         self.assertEqual(meta["total"], 2)
-        self.assertIn("version", meta)
+
+        # Then: Should have ETag and Last-Modified headers
+        self.assertIn("ETag", response)
+        self.assertIn("Last-Modified", response)
 
     def test_get_reactions_no_reactions(self):
         """Test GET /reactions/ returns empty array for profile with no reactions."""
@@ -121,7 +124,10 @@ class ReactionsViewTest(TestCase):
         meta = response.data["meta"]
         self.assertEqual(meta["feed"], feed_url)
         self.assertEqual(meta["total"], 0)
-        self.assertIn("version", meta)
+
+        # Then: Should have ETag and Last-Modified headers
+        self.assertIn("ETag", response)
+        self.assertIn("Last-Modified", response)
 
     def test_get_reactions_nonexistent_profile(self):
         """Test GET /reactions/ returns 404 for nonexistent profile."""

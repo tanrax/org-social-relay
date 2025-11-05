@@ -2,7 +2,7 @@ import json
 from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
-from .models import Feed
+from app.feeds.models import Feed
 
 
 class FeedsViewTest(TestCase):
@@ -279,3 +279,57 @@ class FeedsViewTest(TestCase):
         self.assertIn("Invalid Org Social feed", response.data["errors"][0])
         self.assertIn("missing basic metadata", response.data["errors"][0])
         self.assertIsNone(response.data["data"])
+
+    def test_get_feeds_has_caching_headers(self):
+        """Test GET /feeds returns ETag and Last-Modified headers."""
+        # Given: Some feeds in the database
+        Feed.objects.create(url="https://example.com/social.org")
+        Feed.objects.create(url="https://test.com/social.org")
+
+        # When: We request the feeds list
+        response = self.client.get(self.feeds_url)
+
+        # Then: Should have ETag and Last-Modified headers
+        self.assertIn("ETag", response)
+        self.assertIn("Last-Modified", response)
+
+        # Then: ETag should be properly formatted (quoted)
+        etag = response["ETag"]
+        self.assertTrue(etag.startswith('"') and etag.endswith('"'))
+
+        # Then: Last-Modified should be in RFC 2822 format
+        last_modified = response["Last-Modified"]
+        self.assertIsNotNone(last_modified)
+        # Format example: "Wed, 05 Nov 2025 10:15:00 GMT"
+        self.assertIn("GMT", last_modified)
+
+    def test_get_feeds_etag_is_global_and_consistent(self):
+        """Test GET /feeds ETag is global and doesn't change when feeds are added."""
+        # Given: Initial feeds
+        Feed.objects.create(url="https://example.com/social.org")
+
+        # When: We request the feeds list
+        response1 = self.client.get(self.feeds_url)
+        etag1 = response1["ETag"]
+
+        # When: We add a new feed
+        Feed.objects.create(url="https://new.com/social.org")
+
+        # When: We request the feeds list again
+        response2 = self.client.get(self.feeds_url)
+        etag2 = response2["ETag"]
+
+        # Then: ETag should be the same (global ETag, only changes with scan_feeds)
+        self.assertEqual(etag1, etag2)
+
+    def test_get_empty_feeds_has_caching_headers(self):
+        """Test GET /feeds returns caching headers even when empty."""
+        # Given: No feeds in the database
+        Feed.objects.all().delete()
+
+        # When: We request the feeds list
+        response = self.client.get(self.feeds_url)
+
+        # Then: Should still have caching headers
+        self.assertIn("ETag", response)
+        self.assertIn("Last-Modified", response)

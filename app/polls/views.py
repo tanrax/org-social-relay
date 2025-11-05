@@ -4,7 +4,6 @@ from rest_framework import status
 from django.core.cache import cache
 from django.utils import timezone
 import logging
-import hashlib
 
 from app.feeds.models import Post, Profile, PollVote
 
@@ -37,7 +36,6 @@ class PollsView(APIView):
             )
 
         # Get all polls (both active and expired)
-        current_time = timezone.now()
         polls = (
             Post.objects.filter(poll_end__isnull=False)
             .select_related("profile")
@@ -51,17 +49,12 @@ class PollsView(APIView):
             poll_url = f"{poll.profile.feed}#{poll.post_id}"
             polls_data.append(poll_url)
 
-        # Generate version hash for polls
-        version_string = f"all_polls_{len(polls_data)}_{current_time.isoformat()}"
-        version = hashlib.md5(version_string.encode()).hexdigest()[:8]
-
         response_data = {
             "type": "Success",
             "errors": [],
             "data": polls_data,
             "meta": {
                 "total": len(polls_data),
-                "version": version,
             },
             "_links": {
                 "self": {"href": "/polls/", "method": "GET"},
@@ -123,10 +116,6 @@ class PollsView(APIView):
             }
             polls_data.append(poll_data)
 
-        # Generate version hash
-        version_string = f"{profile.last_updated.isoformat()}_{len(polls_data)}"
-        version = hashlib.md5(version_string.encode()).hexdigest()[:8]
-
         response_data = {
             "type": "Success",
             "errors": [],
@@ -134,7 +123,6 @@ class PollsView(APIView):
             "meta": {
                 "feed": feed_url,
                 "total": len(polls_data),
-                "version": version,
             },
         }
 
@@ -184,10 +172,6 @@ class PollsView(APIView):
             }
             votes_data.append(vote_data)
 
-        # Generate version hash
-        version_string = f"{voter_profile.last_updated.isoformat()}_{len(votes_data)}"
-        version = hashlib.md5(version_string.encode()).hexdigest()[:8]
-
         response_data = {
             "type": "Success",
             "errors": [],
@@ -195,7 +179,6 @@ class PollsView(APIView):
             "meta": {
                 "voter": voter_url,
                 "total": len(votes_data),
-                "version": version,
             },
         }
 
@@ -296,10 +279,6 @@ class PollVotesView(APIView):
             total_votes += len(option_votes)
             data.append({"option": option, "votes": option_votes})
 
-        # Generate version hash
-        version_string = f"{poll_post.updated_at.isoformat()}_{total_votes}"
-        version = hashlib.md5(version_string.encode()).hexdigest()[:8]
-
         # URL encode the post_url for the self link
         from urllib.parse import quote
 
@@ -312,7 +291,6 @@ class PollVotesView(APIView):
             "meta": {
                 "poll": f"{poll_feed}#{poll_id}",
                 "total_votes": total_votes,
-                "version": version,
             },
             "_links": {
                 "self": {
