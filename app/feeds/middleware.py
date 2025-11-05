@@ -3,6 +3,7 @@ Middleware for adding global HTTP caching headers to all responses.
 """
 
 import logging
+from django.core.cache import cache
 from app.feeds.models import RelayMetadata
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,7 @@ class RelayMetadataMiddleware:
     - Headers are added even when serving cached responses
     - The ETag and Last-Modified come from RelayMetadata (updated by scan_feeds)
     - All clients see the same cache version across all endpoints
+    - Metadata is cached to avoid DB queries on every request
     """
 
     def __init__(self, get_response):
@@ -30,7 +32,21 @@ class RelayMetadataMiddleware:
         # Only add to 200-299 status codes (successful responses)
         if 200 <= response.status_code < 300:
             try:
-                etag, last_modified = RelayMetadata.get_global_metadata()
+                # Try to get metadata from cache first
+                cache_key = "relay_metadata_headers"
+                cached_data = cache.get(cache_key)
+
+                if cached_data is None:
+                    # If not in cache, query database
+                    etag, last_modified = RelayMetadata.get_global_metadata()
+                    cached_data = (etag, last_modified)
+                    # Cache permanently until scan_feeds invalidates it
+                    cache.set(cache_key, cached_data, timeout=None)
+                    logger.debug("Cached relay metadata from database")
+                else:
+                    logger.debug("Using cached relay metadata")
+
+                etag, last_modified = cached_data
                 response["ETag"] = f'"{etag}"'
                 response["Last-Modified"] = last_modified.strftime(
                     "%a, %d %b %Y %H:%M:%S GMT"

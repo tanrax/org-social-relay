@@ -654,6 +654,10 @@ def scan_feeds():
     # and after scan they see complete new data (also consistent)
     from django.core.cache import cache
 
+    # Invalidate middleware cache for headers (will be recreated from DB on next request)
+    cache.delete("relay_metadata_headers")
+
+    # Clear all endpoint caches
     cache.clear()
     logger.info("Cache cleared after feed scanning - next requests will get fresh data")
 
