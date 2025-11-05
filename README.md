@@ -100,6 +100,27 @@ https://github.com/tanrax/org-social/blob/main/org-social-relay-list.txt
 
 Add your Relay URL (e.g. `https://my-relay.example.com`) in a new line.
 
+## Updating
+
+To update your Org Social Relay to the latest version:
+
+```bash
+# Navigate to your installation directory
+cd /path/to/org-social-relay
+
+# Check if Docker containers are running
+docker compose up -d --build
+
+# Pull the latest changes
+git pull
+
+# Apply database migrations (if any)
+docker compose exec django python manage.py migrate
+
+# Restart the services
+docker compose restart
+```
+
 ## Endpoints for clients
 
 ### Important Note: URL Encoding
@@ -116,27 +137,20 @@ You can use:
 
 ### HTTP Caching
 
-All Relay endpoints that return data support HTTP caching through standard headers:
+All Relay endpoints that return data include HTTP caching headers:
 
-- **`ETag`**: A unique identifier for the current state of the resource (e.g., `"a1b2c3d4"`). Use this to check if the data has changed since your last request.
-- **`Last-Modified`**: The timestamp when the resource was last updated (e.g., `Wed, 01 Nov 2025 10:15:00 GMT`).
+- **`ETag`**: A unique identifier for the current state of the relay (e.g., `"a1b2c3d4"`). This value changes when the relay scans feeds for updates.
+- **`Last-Modified`**: The timestamp when the relay last scanned feeds (e.g., `Wed, 01 Nov 2025 10:15:00 GMT`).
 
-**Usage:**
-
-Clients should store these headers and use them in subsequent requests with `If-None-Match` (for ETag) or `If-Modified-Since` (for Last-Modified) to avoid fetching unchanged data. When the data hasn't changed, the server will return a `304 Not Modified` response.
+All endpoints return the same `ETag` and `Last-Modified` values, which represent the global state of the relay. These headers are updated by the periodic feed scanning task.
 
 **Example:**
 ```sh
-# Initial request
 curl -i http://localhost:8080/mentions/?feed=https://example.com/social.org
 
 # Response headers include:
 # ETag: "abc123"
 # Last-Modified: Wed, 01 Nov 2025 10:15:00 GMT
-
-# Subsequent request with ETag
-curl -H 'If-None-Match: "abc123"' http://localhost:8080/mentions/?feed=https://example.com/social.org
-# Returns 304 Not Modified if data hasn't changed
 ```
 
 ### Root
