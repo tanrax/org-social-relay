@@ -1,5 +1,6 @@
 import os
 import tempfile
+from unittest.mock import Mock, patch
 from django.test import TestCase
 
 
@@ -486,3 +487,155 @@ Test content
                 f"Property '{key}' has value starting with colon: '{value}'. "
                 f"This indicates the regex is capturing the next property.",
             )
+
+    def test_parse_emoji_with_skin_tone_utf8(self):
+        """Test parsing emojis with skin tone modifiers in UTF-8 encoding.
+
+        This test validates that emojis with skin tone modifiers (like 🙌🏻)
+        are correctly parsed and stored in UTF-8 encoding, not double-encoded.
+        """
+        # Given: An org social content with emoji containing skin tone modifier
+        content = """#+TITLE: Test
+#+NICK: test_user
+
+* Posts
+**
+:PROPERTIES:
+:ID: 2025-11-13T12:05:35+0100
+:REPLY_TO: https://example.com/social.org#2025-11-13T10:00:00+0100
+:MOOD: 🙌🏻
+:END:
+
+Great work!
+"""
+
+        # When: We parse the content
+        from app.feeds.parser import parse_org_social_content
+
+        result = parse_org_social_content(content)
+
+        # Then: The emoji should be correctly parsed
+        self.assertEqual(len(result["posts"]), 1)
+        post = result["posts"][0]
+
+        # Then: The mood should be the emoji with correct UTF-8 encoding
+        mood = post["properties"]["mood"]
+        self.assertEqual(mood, "🙌🏻")
+
+        # Then: Verify the bytes are correct UTF-8, not double-encoded
+        # Correct UTF-8: f0 9f 99 8c f0 9f 8f bb (🙌🏻)
+        # Double-encoded would be: c3 b0 c2 9f c2 99 c2 8c c3 b0 c2 9f c2 8f c2 bb
+        mood_bytes = mood.encode('utf-8')
+        self.assertEqual(mood_bytes.hex(), 'f09f998cf09f8fbb')
+
+    def test_parse_various_emojis_utf8(self):
+        """Test parsing various emojis to ensure UTF-8 encoding is preserved."""
+        # Given: An org social content with multiple different emojis
+        content = """#+TITLE: Test
+#+NICK: test_user
+
+* Posts
+**
+:PROPERTIES:
+:ID: 2025-01-01T10:00:00+0100
+:MOOD: 😃
+:END:
+
+Happy post!
+
+**
+:PROPERTIES:
+:ID: 2025-01-01T10:01:00+0100
+:MOOD: 🚀
+:END:
+
+Launch post!
+
+**
+:PROPERTIES:
+:ID: 2025-01-01T10:02:00+0100
+:MOOD: 💗
+:END:
+
+Love post!
+
+**
+:PROPERTIES:
+:ID: 2025-01-01T10:03:00+0100
+:MOOD: 🎉
+:END:
+
+Party post!
+"""
+
+        # When: We parse the content
+        from app.feeds.parser import parse_org_social_content
+
+        result = parse_org_social_content(content)
+
+        # Then: All emojis should be correctly parsed
+        self.assertEqual(len(result["posts"]), 4)
+
+        # Then: Verify each emoji and its UTF-8 bytes
+        expected_emojis = [
+            ("😃", "f09f9883"),
+            ("🚀", "f09f9a80"),
+            ("💗", "f09f9297"),
+            ("🎉", "f09f8e89"),
+        ]
+
+        for i, (expected_emoji, expected_bytes) in enumerate(expected_emojis):
+            post = result["posts"][i]
+            mood = post["properties"]["mood"]
+            self.assertEqual(mood, expected_emoji)
+            self.assertEqual(mood.encode('utf-8').hex(), expected_bytes)
+
+    @patch('app.feeds.parser.requests.get')
+    def test_parse_feed_with_missing_charset_header(self, mock_get):
+        """Test parsing a feed when server doesn't specify charset in Content-Type.
+
+        This test validates that the parser correctly handles UTF-8 content
+        even when the server doesn't specify charset in the Content-Type header,
+        which would cause requests library to default to ISO-8859-1 encoding.
+        """
+        # Given: A feed content with emoji that would be double-encoded if using response.text
+        content_with_emoji = """#+TITLE: Test
+#+NICK: test_user
+
+* Posts
+**
+:PROPERTIES:
+:ID: 2025-11-13T12:05:35+0100
+:MOOD: 🙌🏻
+:END:
+
+Great work!
+"""
+
+        # Given: Mock response that simulates server without charset in Content-Type
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.encoding = 'ISO-8859-1'  # requests default when no charset
+        mock_response.content = content_with_emoji.encode('utf-8')  # Raw UTF-8 bytes
+        mock_response.raise_for_status = Mock()
+        mock_get.return_value = mock_response
+
+        # When: We parse the feed from URL
+        from app.feeds.parser import parse_org_social
+
+        result = parse_org_social('https://example.com/social.org')
+
+        # Then: The emoji should be correctly parsed (not double-encoded)
+        self.assertEqual(len(result["posts"]), 1)
+        post = result["posts"][0]
+
+        mood = post["properties"]["mood"]
+        self.assertEqual(mood, "🙌🏻")
+
+        # Then: Verify the bytes are correct UTF-8, not double-encoded
+        mood_bytes = mood.encode('utf-8')
+        self.assertEqual(mood_bytes.hex(), 'f09f998cf09f8fbb')
+
+        # Then: Verify we're using response.content, not response.text
+        # This is critical to avoid double-encoding
+        mock_get.assert_called_once_with('https://example.com/social.org', timeout=5)

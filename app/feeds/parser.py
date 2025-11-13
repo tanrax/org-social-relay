@@ -32,7 +32,9 @@ def parse_org_social(url: str) -> Dict[str, Any]:
     try:
         response = requests.get(url, timeout=5)
         response.raise_for_status()
-        content = response.text
+        # Decode content as UTF-8 explicitly to avoid encoding issues
+        # when the server doesn't specify charset in Content-Type header
+        content = response.content.decode('utf-8')
 
         # Update last_successful_fetch if we got a 200 response
         if response.status_code == 200:
@@ -302,7 +304,8 @@ def validate_org_social_feed(url: str) -> Tuple[bool, str]:
         # Update last_successful_fetch since we got a 200 response
         _update_feed_last_successful_fetch(url)
 
-        content = response.text
+        # Decode content as UTF-8 explicitly to avoid encoding issues
+        content = response.content.decode('utf-8')
 
         # Check if content has basic Org Social structure
         # At minimum should have at least one #+TITLE, #+NICK, or #+DESCRIPTION (case insensitive)
