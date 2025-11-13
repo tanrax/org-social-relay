@@ -5,12 +5,14 @@ from django.core.cache import cache
 import logging
 
 from app.feeds.models import Profile, Post
+from app.reactions.renderers import UTF8JSONRenderer
 
 logger = logging.getLogger(__name__)
 
 
 class ReactionsView(APIView):
     """Get reactions for a specific feed URL"""
+    renderer_classes = [UTF8JSONRenderer]
 
     def get(self, request):
         feed_url = request.query_params.get("feed")
