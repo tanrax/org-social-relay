@@ -110,16 +110,14 @@ class LatestPostsFeed(Feed):
 
     def item_title(self, item):
         """Generate item title"""
-        # Try to extract title from content (first line or first 50 chars)
+        # Use first line as title, or entire content if no line breaks
         content = item.content.strip()
         if '\n' in content:
+            # Use first line as title (complete, no limits)
             first_line = content.split('\n')[0].strip()
-            if first_line and len(first_line) <= 100:
-                return first_line
+            return first_line if first_line else 'Untitled post'
 
-        # Use first 50 characters as title
-        if len(content) > 50:
-            return content[:50] + '...'
+        # Use entire content as title (no limits)
         return content if content else 'Untitled post'
 
     def item_description(self, item):
