@@ -77,6 +77,7 @@ INSTALLED_APPS = [
     "app.notifications.apps.NotificationsConfig",
     "app.search.apps.SearchConfig",
     "app.groups.apps.GroupsConfig",
+    "app.rss.apps.RssConfig",
 ]
 
 MIDDLEWARE = [

@@ -182,7 +182,8 @@ curl http://localhost:8080/
         "groups": {"href": "/groups/", "method": "GET"},
         "group-messages": {"href": "/groups/{group_slug}/", "method": "GET", "templated": true},
         "polls": {"href": "/polls/", "method": "GET"},
-        "poll-votes": {"href": "/polls/votes/?post={post_url}", "method": "GET", "templated": true}
+        "poll-votes": {"href": "/polls/votes/?post={post_url}", "method": "GET", "templated": true},
+        "rss": {"href": "/rss.xml", "method": "GET", "description": "RSS feed of latest posts (supports ?tag={tag} and ?feed={feed_url} filters)"}
     }
 }
 ```
@@ -780,6 +781,30 @@ Once configured, users can:
 3. Post messages to specific groups
 
 The groups endpoints will only be available when groups are configured via the `GROUPS` environment variable.
+
+## RSS Feed
+
+Org Social Relay provides an RSS feed of different types of content.
+
+- The latest posts scanned from all registered feeds.
+
+```sh
+http://localhost:8080/rss.xml
+```
+
+- By tag.
+
+```sh
+curl http://localhost:8080/rss.xml?tag=emacs
+```
+
+- By author feed.
+
+```sh
+curl http://localhost:8080/rss.xml?feed=https%3A%2F%2Forg-social.org%2Fsocial.org
+```
+
+This RSS feed can be used in RSS readers to stay updated with new posts from the relay, but is limited to the latest 200 posts.
 
 ## Technical information
 

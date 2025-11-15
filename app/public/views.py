@@ -62,6 +62,11 @@ def root_view(request):
                     "method": "GET",
                     "templated": True,
                 },
+                "rss": {
+                    "href": "/rss.xml",
+                    "method": "GET",
+                    "description": "RSS feed of latest posts (supports ?tag={tag} and ?feed={feed_url} filters)",
+                },
             },
         }
     )

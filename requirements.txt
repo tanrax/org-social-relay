@@ -8,3 +8,4 @@ requests>=2.31.0
 python-dateutil>=2.8.0
 pytest>=7.0.0
 pytest-django>=4.5.0
+org-python>=0.3.1
