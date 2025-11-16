@@ -109,16 +109,10 @@ class LatestPostsFeed(Feed):
         return posts
 
     def item_title(self, item):
-        """Generate item title"""
-        # Use first line as title, or entire content if no line breaks
-        content = item.content.strip()
-        if '\n' in content:
-            # Use first line as title (complete, no limits)
-            first_line = content.split('\n')[0].strip()
-            return first_line if first_line else 'Untitled post'
-
-        # Use entire content as title (no limits)
-        return content if content else 'Untitled post'
+        """Generate item title: date + nick"""
+        # Format: "2025-11-15 - username"
+        date_str = item.created_at.strftime('%Y-%m-%d')
+        return f"{date_str} - {item.profile.nick}"
 
     def item_description(self, item):
         """Return full post content as description, converted from Org to HTML"""
@@ -128,10 +122,16 @@ class LatestPostsFeed(Feed):
         # Convert Org mode content to HTML if org-python is available
         if HAS_ORGPYTHON:
             try:
+                # Posts in Org Social start at level 3 (***), but in RSS context
+                # they should start at level 1. Remove 2 asterisks from headings
+                # before conversion: *** -> *, **** -> **, etc.
+                content = re.sub(r'^(\*{2,})', lambda m: '*' * (len(m.group(1)) - 2), item.content, flags=re.MULTILINE)
+
                 # Convert org-mode to HTML
                 # We disable toc as we're showing individual posts
                 # highlight=True enables syntax highlighting for code blocks
-                html_content = org_to_html(item.content, toc=False, highlight=True)
+                html_content = org_to_html(content, toc=False, highlight=True)
+
                 return html_content
             except Exception as e:
                 logger.warning(f"Failed to convert Org to HTML for post {item.post_id}: {e}")
