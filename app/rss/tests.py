@@ -78,29 +78,29 @@ class RSSFeedTest(TestCase):
 
         # Then: Should return 200 and valid RSS
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response['Content-Type'], 'application/rss+xml; charset=utf-8')
+        self.assertEqual(response["Content-Type"], "application/rss+xml; charset=utf-8")
 
         # Parse XML and verify structure
         root = ET.fromstring(response.content)
-        self.assertEqual(root.tag, 'rss')
-        self.assertEqual(root.get('version'), '2.0')
+        self.assertEqual(root.tag, "rss")
+        self.assertEqual(root.get("version"), "2.0")
 
         # Verify channel
-        channel = root.find('channel')
+        channel = root.find("channel")
         self.assertIsNotNone(channel)
 
         # Verify title
-        title = channel.find('title')
+        title = channel.find("title")
         self.assertIsNotNone(title)
-        self.assertEqual(title.text, 'Org Social Relay - Latest Posts')
+        self.assertEqual(title.text, "Org Social Relay - Latest Posts")
 
         # Verify items
-        items = channel.findall('item')
+        items = channel.findall("item")
         self.assertEqual(len(items), 5)  # All 5 posts
 
         # Verify first item (most recent)
         first_item = items[0]
-        guid = first_item.find('guid')
+        guid = first_item.find("guid")
         self.assertIsNotNone(guid)
         self.assertIn(self.post5.post_id, guid.text)
 
@@ -109,53 +109,53 @@ class RSSFeedTest(TestCase):
         # Given: Posts with various tags
 
         # When: We request the RSS feed filtered by tag "emacs"
-        response = self.client.get(self.rss_url, {'tag': 'emacs'})
+        response = self.client.get(self.rss_url, {"tag": "emacs"})
 
         # Then: Should return 200 and filtered RSS
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # Parse XML
         root = ET.fromstring(response.content)
-        channel = root.find('channel')
+        channel = root.find("channel")
 
         # Verify title includes tag
-        title = channel.find('title')
-        self.assertIn('emacs', title.text.lower())
+        title = channel.find("title")
+        self.assertIn("emacs", title.text.lower())
 
         # Verify only posts with "emacs" tag are included
-        items = channel.findall('item')
+        items = channel.findall("item")
         self.assertEqual(len(items), 2)  # post1 and post4
 
         # Verify all items have the emacs tag
         for item in items:
-            categories = [cat.text for cat in item.findall('category')]
-            self.assertIn('emacs', categories)
+            categories = [cat.text for cat in item.findall("category")]
+            self.assertIn("emacs", categories)
 
     def test_rss_feed_filtered_by_feed(self):
         """Test GET /rss.xml?feed=<feed_url> returns RSS feed filtered by author feed."""
         # Given: Posts from different profiles
 
         # When: We request the RSS feed filtered by profile1's feed
-        response = self.client.get(self.rss_url, {'feed': self.profile1.feed})
+        response = self.client.get(self.rss_url, {"feed": self.profile1.feed})
 
         # Then: Should return 200 and filtered RSS
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # Parse XML
         root = ET.fromstring(response.content)
-        channel = root.find('channel')
+        channel = root.find("channel")
 
         # Verify title includes feed
-        title = channel.find('title')
+        title = channel.find("title")
         self.assertIn(self.profile1.feed, title.text)
 
         # Verify only posts from profile1 are included
-        items = channel.findall('item')
+        items = channel.findall("item")
         self.assertEqual(len(items), 2)  # post1 and post4
 
         # Verify all items are from profile1
         for item in items:
-            link = item.find('link')
+            link = item.find("link")
             self.assertIn(self.profile1.feed, link.text)
 
     def test_rss_feed_item_structure(self):
@@ -167,18 +167,18 @@ class RSSFeedTest(TestCase):
 
         # Parse XML
         root = ET.fromstring(response.content)
-        channel = root.find('channel')
-        items = channel.findall('item')
+        channel = root.find("channel")
+        items = channel.findall("item")
 
         # Then: Each item should have required fields
         for item in items:
             # Required fields
-            self.assertIsNotNone(item.find('title'))
-            self.assertIsNotNone(item.find('link'))
-            self.assertIsNotNone(item.find('description'))
-            self.assertIsNotNone(item.find('pubDate'))
-            self.assertIsNotNone(item.find('guid'))
-            self.assertIsNotNone(item.find('author'))
+            self.assertIsNotNone(item.find("title"))
+            self.assertIsNotNone(item.find("link"))
+            self.assertIsNotNone(item.find("description"))
+            self.assertIsNotNone(item.find("pubDate"))
+            self.assertIsNotNone(item.find("guid"))
+            self.assertIsNotNone(item.find("author"))
 
     def test_rss_feed_limit_200_posts(self):
         """Test that RSS feed is limited to 200 posts as per specification."""
@@ -196,8 +196,8 @@ class RSSFeedTest(TestCase):
 
         # Parse XML
         root = ET.fromstring(response.content)
-        channel = root.find('channel')
-        items = channel.findall('item')
+        channel = root.find("channel")
+        items = channel.findall("item")
 
         # Then: Should be limited to 200 posts
         self.assertEqual(len(items), 200)
@@ -211,17 +211,17 @@ class RSSFeedTest(TestCase):
 
         # Parse XML
         root = ET.fromstring(response.content)
-        channel = root.find('channel')
-        items = channel.findall('item')
+        channel = root.find("channel")
+        items = channel.findall("item")
 
         # Then: First item should be the most recent post
         first_item = items[0]
-        first_guid = first_item.find('guid').text
+        first_guid = first_item.find("guid").text
         self.assertIn(self.post5.post_id, first_guid)  # Most recent
 
         # Last item should be the oldest post
         last_item = items[-1]
-        last_guid = last_item.find('guid').text
+        last_guid = last_item.find("guid").text
         self.assertIn(self.post1.post_id, last_guid)  # Oldest
 
     def test_rss_feed_categories_from_tags(self):
@@ -233,13 +233,13 @@ class RSSFeedTest(TestCase):
 
         # Parse XML
         root = ET.fromstring(response.content)
-        channel = root.find('channel')
-        items = channel.findall('item')
+        channel = root.find("channel")
+        items = channel.findall("item")
 
         # Find item for post3 (has multiple tags)
         post3_item = None
         for item in items:
-            guid = item.find('guid').text
+            guid = item.find("guid").text
             if self.post3.post_id in guid:
                 post3_item = item
                 break
@@ -247,7 +247,7 @@ class RSSFeedTest(TestCase):
         self.assertIsNotNone(post3_item)
 
         # Then: Categories should match tags
-        categories = [cat.text for cat in post3_item.findall('category')]
+        categories = [cat.text for cat in post3_item.findall("category")]
         expected_tags = self.post3.tags.split()
         self.assertEqual(set(categories), set(expected_tags))
 
@@ -260,15 +260,15 @@ class RSSFeedTest(TestCase):
 
         # Parse XML
         root = ET.fromstring(response.content)
-        channel = root.find('channel')
-        items = channel.findall('item')
+        channel = root.find("channel")
+        items = channel.findall("item")
 
         # Then: Each GUID should be feed#post_id format
         for item in items:
-            guid = item.find('guid')
+            guid = item.find("guid")
             self.assertIsNotNone(guid)
-            self.assertIn('#', guid.text)
-            self.assertTrue(guid.get('isPermaLink') in ['true', None])
+            self.assertIn("#", guid.text)
+            self.assertTrue(guid.get("isPermaLink") in ["true", None])
 
     def test_rss_feed_content_type(self):
         """Test that RSS feed returns correct content type."""
@@ -278,7 +278,7 @@ class RSSFeedTest(TestCase):
         response = self.client.get(self.rss_url)
 
         # Then: Content-Type should be application/rss+xml
-        self.assertEqual(response['Content-Type'], 'application/rss+xml; charset=utf-8')
+        self.assertEqual(response["Content-Type"], "application/rss+xml; charset=utf-8")
 
     def test_rss_feed_valid_xml(self):
         """Test that RSS feed returns valid XML."""
@@ -302,13 +302,13 @@ class RSSFeedTest(TestCase):
 
         # Parse XML
         root = ET.fromstring(response.content)
-        channel = root.find('channel')
-        items = channel.findall('item')
+        channel = root.find("channel")
+        items = channel.findall("item")
 
         # Find item for post1
         post1_item = None
         for item in items:
-            guid = item.find('guid').text
+            guid = item.find("guid").text
             if self.post1.post_id in guid:
                 post1_item = item
                 break
@@ -316,12 +316,12 @@ class RSSFeedTest(TestCase):
         self.assertIsNotNone(post1_item)
 
         # Then: Description should contain HTML-converted content
-        description = post1_item.find('description')
+        description = post1_item.find("description")
         self.assertIsNotNone(description.text)
         # Content is now converted to HTML, so we check for HTML elements
-        self.assertIn('<p>', description.text)
+        self.assertIn("<p>", description.text)
         # The original content should be present in the HTML
-        self.assertIn('This post is about Emacs and org-mode', description.text)
+        self.assertIn("This post is about Emacs and org-mode", description.text)
 
     def test_rss_feed_author_is_nick(self):
         """Test that author is the profile nick."""
@@ -332,13 +332,13 @@ class RSSFeedTest(TestCase):
 
         # Parse XML
         root = ET.fromstring(response.content)
-        channel = root.find('channel')
-        items = channel.findall('item')
+        channel = root.find("channel")
+        items = channel.findall("item")
 
         # Find item for post1
         post1_item = None
         for item in items:
-            guid = item.find('guid').text
+            guid = item.find("guid").text
             if self.post1.post_id in guid:
                 post1_item = item
                 break
@@ -346,7 +346,7 @@ class RSSFeedTest(TestCase):
         self.assertIsNotNone(post1_item)
 
         # Then: Author should be the profile nick
-        author = post1_item.find('author')
+        author = post1_item.find("author")
         self.assertIn(self.profile1.nick, author.text)
 
     def test_rss_feed_empty_when_no_posts(self):
@@ -362,8 +362,8 @@ class RSSFeedTest(TestCase):
 
         # Parse XML
         root = ET.fromstring(response.content)
-        channel = root.find('channel')
-        items = channel.findall('item')
+        channel = root.find("channel")
+        items = channel.findall("item")
 
         # Should have 0 items
         self.assertEqual(len(items), 0)
@@ -377,13 +377,50 @@ class RSSFeedTest(TestCase):
 
         # Parse XML
         root = ET.fromstring(response.content)
-        channel = root.find('channel')
-        items = channel.findall('item')
+        channel = root.find("channel")
+        items = channel.findall("item")
 
         # Then: Each link should be feed#post_id format
         for item in items:
-            link = item.find('link')
-            guid = item.find('guid')
+            link = item.find("link")
+            guid = item.find("guid")
             # Link and GUID should be the same
             self.assertEqual(link.text, guid.text)
-            self.assertIn('#', link.text)
+            self.assertIn("#", link.text)
+
+    def test_rss_feed_excludes_empty_content(self):
+        """Test that RSS feed excludes posts with empty content (reactions, votes, etc.)."""
+        # Given: Posts with and without content
+        # Create posts with empty content (reactions, votes)
+        Post.objects.create(
+            profile=self.profile1,
+            post_id="2025-01-01T17:00:00+00:00",
+            content="",  # Empty content (reaction/vote)
+            tags="reaction",
+        )
+        Post.objects.create(
+            profile=self.profile2,
+            post_id="2025-01-01T18:00:00+00:00",
+            content="   ",  # Whitespace only
+            tags="vote",
+        )
+
+        # When: We request the RSS feed
+        response = self.client.get(self.rss_url)
+
+        # Parse XML
+        root = ET.fromstring(response.content)
+        channel = root.find("channel")
+        items = channel.findall("item")
+
+        # Then: Should only include posts with content (5 original posts)
+        # Empty and whitespace-only posts should be excluded
+        self.assertEqual(len(items), 5)
+
+        # Verify all items have non-empty description
+        for item in items:
+            description = item.find("description")
+            # Description should exist and have content
+            self.assertIsNotNone(description.text)
+            # After HTML conversion, should have actual content
+            self.assertIn("<p>", description.text)
