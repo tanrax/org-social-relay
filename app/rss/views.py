@@ -2,6 +2,7 @@ from django.contrib.syndication.views import Feed
 from django.utils.feedgenerator import Rss201rev2Feed
 from django.core.cache import cache
 from django.conf import settings
+from django.http import HttpResponse
 import hashlib
 import re
 import logging
@@ -34,6 +35,38 @@ class LatestPostsFeed(Feed):
     """RSS feed for latest posts from Org Social Relay"""
 
     feed_type = CustomRss201rev2Feed
+
+    def __call__(self, request, *args, **kwargs):
+        """Override to add XML caching"""
+        # Build cache key for the XML response
+        tag = request.GET.get("tag", "")
+        feed_url = request.GET.get("feed", "")
+
+        cache_parts = ["rss_xml"]
+        if tag:
+            cache_parts.append(f"tag_{hashlib.md5(tag.encode()).hexdigest()[:8]}")
+        elif feed_url:
+            cache_parts.append(f"feed_{hashlib.md5(feed_url.encode()).hexdigest()[:8]}")
+        else:
+            cache_parts.append("all")
+
+        cache_key = "_".join(cache_parts)
+
+        # Try to get cached XML
+        cached_xml = cache.get(cache_key)
+        if cached_xml is not None:
+            return HttpResponse(
+                cached_xml, content_type="application/rss+xml; charset=utf-8"
+            )
+
+        # Generate feed normally
+        response = super().__call__(request, *args, **kwargs)
+
+        # Cache the XML response for 5 minutes (300 seconds)
+        if response.status_code == 200:
+            cache.set(cache_key, response.content, 300)
+
+        return response
 
     def get_object(self, request):
         """Process query parameters"""

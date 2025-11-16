@@ -1,4 +1,4 @@
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 from rest_framework import status
 from xml.etree import ElementTree as ET
@@ -424,3 +424,35 @@ class RSSFeedTest(TestCase):
             self.assertIsNotNone(description.text)
             # After HTML conversion, should have actual content
             self.assertIn("<p>", description.text)
+
+    @override_settings(
+        CACHES={
+            "default": {
+                "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+                "LOCATION": "test-cache",
+            }
+        }
+    )
+    def test_rss_feed_xml_caching(self):
+        """Test that RSS feed XML response is cached for performance."""
+        from django.core.cache import cache
+
+        # Given: Posts exist and cache is cleared
+        cache_key = "rss_xml_all"
+        cache.delete(cache_key)
+
+        # When: We request the RSS feed for the first time
+        response1 = self.client.get(self.rss_url)
+        self.assertEqual(response1.status_code, status.HTTP_200_OK)
+
+        # Then: The XML should be cached
+        cached_xml = cache.get(cache_key)
+        self.assertIsNotNone(cached_xml)
+
+        # When: We request the RSS feed again
+        response2 = self.client.get(self.rss_url)
+        self.assertEqual(response2.status_code, status.HTTP_200_OK)
+
+        # Then: Both responses should be identical
+        self.assertEqual(response1.content, response2.content)
+        self.assertEqual(response1["Content-Type"], response2["Content-Type"])
