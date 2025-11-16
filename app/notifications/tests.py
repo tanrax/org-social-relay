@@ -346,3 +346,72 @@ class NotificationsViewTest(TestCase):
         self.assertIn("post", reply)
         self.assertIn("parent", reply)
         self.assertNotIn("emoji", reply)
+
+    def test_get_notifications_with_boosts(self):
+        """Test GET /notifications/?feed=<feed_url> includes boosts."""
+        # Given: A profile with posts that have been boosted
+        boost_post = Post.objects.create(
+            profile=self.profile2,
+            post_id="2025-01-01T17:00:00+00:00",
+            content="Boosting this amazing post!",
+            include=f"{self.profile1.feed}#{self.post1.post_id}",
+        )
+
+        # When: We request all notifications for the profile
+        response = self.client.get(self.notifications_url, {"feed": self.profile1.feed})
+
+        # Then: We should get notifications including the boost
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.data["data"]
+
+        # Find the boost notification
+        boost_notifications = [n for n in data if n["type"] == "boost"]
+        self.assertEqual(len(boost_notifications), 1)
+
+        boost_notif = boost_notifications[0]
+        self.assertEqual(boost_notif["type"], "boost")
+        self.assertEqual(boost_notif["post"], f"{self.profile2.feed}#{boost_post.post_id}")
+        self.assertEqual(boost_notif["boosted"], f"{self.profile1.feed}#{self.post1.post_id}")
+
+        # Then: Meta should include boost count
+        meta = response.data["meta"]
+        self.assertEqual(meta["by_type"]["boosts"], 1)
+        self.assertEqual(meta["total"], 4)  # 1 mention + 1 reaction + 1 reply + 1 boost
+
+    def test_get_notifications_filtered_by_boost(self):
+        """Test GET /notifications/?feed=<feed_url>&type=boost returns only boosts."""
+        # Given: A profile with all notification types including boosts
+        Post.objects.create(
+            profile=self.profile2,
+            post_id="2025-01-01T17:00:00+00:00",
+            content="Boosting!",
+            include=f"{self.profile1.feed}#{self.post1.post_id}",
+        )
+        Post.objects.create(
+            profile=self.profile3,
+            post_id="2025-01-01T18:00:00+00:00",
+            content="",
+            include=f"{self.profile1.feed}#{self.post2.post_id}",
+        )
+
+        # When: We request only boosts
+        response = self.client.get(
+            self.notifications_url, {"feed": self.profile1.feed, "type": "boost"}
+        )
+
+        # Then: Should only return boosts
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.data["data"]
+        self.assertEqual(len(data), 2)
+
+        for boost in data:
+            self.assertEqual(boost["type"], "boost")
+            self.assertIn("post", boost)
+            self.assertIn("boosted", boost)
+            self.assertNotIn("emoji", boost)
+            self.assertNotIn("parent", boost)
+
+        # Then: Meta should show filtered results
+        meta = response.data["meta"]
+        self.assertEqual(meta["total"], 2)
+        self.assertEqual(meta["by_type"]["boosts"], 2)

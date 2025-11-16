@@ -54,6 +54,7 @@ graph TD
 - Read or participate in threads.
 - Perform searches (tags and full text).
 - Participate in groups.
+- See who boosted your posts.
 
 ## Concepts
 
@@ -177,6 +178,7 @@ curl http://localhost:8080/
         "mentions": {"href": "/mentions/?feed={feed_url}", "method": "GET", "templated": true},
         "reactions": {"href": "/reactions/?feed={feed_url}", "method": "GET", "templated": true},
         "replies-to": {"href": "/replies-to/?feed={feed_url}", "method": "GET", "templated": true},
+        "boosts": {"href": "/boosts/?post={post_url}", "method": "GET", "templated": true},
         "replies": {"href": "/replies/?post={post_url}", "method": "GET", "templated": true},
         "search": {"href": "/search/?q={query}", "method": "GET", "templated": true},
         "groups": {"href": "/groups/", "method": "GET"},
@@ -231,7 +233,7 @@ curl -X POST http://localhost:8080/feeds/ -d '{"feed": "https://example.com/path
 
 ### Get notifications
 
-`/notifications/?feed={url feed}` - Get all notifications (mentions, reactions, and replies) received by a given feed. Results are ordered from most recent to oldest.
+`/notifications/?feed={url feed}` - Get all notifications (mentions, reactions, replies, and boosts) received by a given feed. Results are ordered from most recent to oldest.
 
 ```sh
 # URL must be encoded when passed as query parameter
@@ -246,6 +248,11 @@ curl -G "http://localhost:8080/notifications/" --data-urlencode "feed=https://ex
     "type": "Success",
     "errors": [],
     "data": [
+        {
+            "type": "boost",
+            "post": "https://alice.org/social.org#2025-02-05T14:00:00+0100",
+            "boosted": "https://example.com/social.org#2025-02-05T10:00:00+0100"
+        },
         {
             "type": "reaction",
             "post": "https://alice.org/social.org#2025-02-05T13:15:00+0100",
@@ -270,11 +277,12 @@ curl -G "http://localhost:8080/notifications/" --data-urlencode "feed=https://ex
     ],
     "meta": {
         "feed": "https://example.com/social.org",
-        "total": 4,
+        "total": 5,
         "by_type": {
             "mentions": 1,
             "reactions": 2,
-            "replies": 1
+            "replies": 1,
+            "boosts": 1
         }
     },
     "_links": {
@@ -287,22 +295,26 @@ curl -G "http://localhost:8080/notifications/" --data-urlencode "feed=https://ex
 ```
 
 Each notification includes:
-- `type`: The notification type (`"mention"`, `"reaction"`, or `"reply"`)
+- `type`: The notification type (`"mention"`, `"reaction"`, `"reply"`, or `"boost"`)
 - `post`: The notification post URL (format: `{author_feed}#{timestamp}`)
 - `emoji`: (Only for reactions) The reaction emoji
 - `parent`: (Only for reactions and replies) The post URL that received the notification
+- `boosted`: (Only for boosts) The original post URL that was boosted
 
 **Mentions** only have `type` and `post` because you are the one being mentioned in someone else's post.
 
 **Reactions and replies** have `parent` to indicate which of your posts received the reaction/reply.
+
+**Boosts** have `boosted` to indicate which of your posts was shared.
 
 To extract the author's feed from the `post` field, simply take the part before the `#` character. For example, from `https://alice.org/social.org#2025-02-05T13:15:00+0100`, the author is `https://alice.org/social.org`.
 
 The `by_type` breakdown in `meta` allows you to show notification counts per type in your UI.
 
 **Optional parameters:**
-- `type`: Filter by notification type (`mention`, `reaction`, `reply`)
+- `type`: Filter by notification type (`mention`, `reaction`, `reply`, `boost`)
   - Example: `/notifications/?feed={feed}&type=reaction`
+  - Example: `/notifications/?feed={feed}&type=boost`
 
 ### Get mentions
 
@@ -437,6 +449,44 @@ The response includes:
 To extract the author's feed from the `post` field, simply take the part before the `#` character. For example, from `https://alice.org/social.org#2025-02-05T13:15:00+0100`, the author is `https://alice.org/social.org`.
 
 **Note:** This endpoint shows direct replies to your posts. To see the full conversation thread of a specific post, use the `/replies/?post={post_url}` endpoint instead.
+
+### Get boosts
+
+`/boosts/?post={url post}` - Get all boosts (reposts/shares) for a specific post. A boost is when someone shares your post on their timeline using the `:INCLUDE:` property. Results are ordered from most recent to oldest.
+
+```sh
+# URL must be encoded when passed as query parameter
+curl "http://localhost:8080/boosts/?post=https%3A%2F%2Fexample.com%2Fsocial.org%232025-02-05T10%3A00%3A00%2B0100"
+
+# Or use curl's --data-urlencode for automatic encoding:
+curl -G "http://localhost:8080/boosts/" --data-urlencode "post=https://example.com/social.org#2025-02-05T10:00:00+0100"
+```
+
+```json
+{
+    "type": "Success",
+    "errors": [],
+    "data": [
+        "https://alice.org/social.org#2025-02-05T14:00:00+0100",
+        "https://bob.org/social.org#2025-02-05T15:30:00+0100",
+        "https://charlie.org/social.org#2025-02-05T16:45:00+0100"
+    ],
+    "meta": {
+        "post": "https://example.com/social.org#2025-02-05T10:00:00+0100",
+        "total": 3
+    },
+    "_links": {
+        "self": {"href": "/boosts/?post=https%3A%2F%2Fexample.com%2Fsocial.org%232025-02-05T10%3A00%3A00%2B0100", "method": "GET"}
+    }
+}
+```
+
+The response includes:
+- A list of boost post URLs (format: `{booster_feed}#{timestamp}`)
+
+To extract the booster's feed from each post URL, simply take the part before the `#` character. For example, from `https://alice.org/social.org#2025-02-05T14:00:00+0100`, the booster is `https://alice.org/social.org`.
+
+**Note:** According to Org Social specification, boosts are posts with the `:INCLUDE:` property pointing to the boosted post.
 
 ### Get replies/threads
 

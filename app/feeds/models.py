@@ -121,6 +121,11 @@ class Post(models.Model):
     group = models.CharField(
         max_length=100, blank=True, help_text="Group name (GROUP property)"
     )
+    include = models.CharField(
+        max_length=300,
+        blank=True,
+        help_text="Post being boosted/shared (URL#ID format)",
+    )
 
     # Poll related fields
     poll_end = models.DateTimeField(
@@ -145,6 +150,10 @@ class Post(models.Model):
     @property
     def is_reply(self):
         return bool(self.reply_to)
+
+    @property
+    def is_boost(self):
+        return bool(self.include)
 
 
 class PollOption(models.Model):

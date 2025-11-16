@@ -30,7 +30,7 @@ class NotificationsView(APIView):
         feed_url = feed_url.strip()
 
         # Validate type parameter if provided
-        valid_types = ["mention", "reaction", "reply"]
+        valid_types = ["mention", "reaction", "reply", "boost"]
         if notification_type and notification_type not in valid_types:
             return Response(
                 {
@@ -64,7 +64,7 @@ class NotificationsView(APIView):
             )
 
         notifications_data = []
-        counts = {"mentions": 0, "reactions": 0, "replies": 0}
+        counts = {"mentions": 0, "reactions": 0, "replies": 0, "boosts": 0}
 
         # Get all post IDs from this profile (for reactions and replies)
         profile_post_ids = list(profile.posts.values_list("post_id", flat=True))
@@ -126,6 +126,27 @@ class NotificationsView(APIView):
                     }
                 )
             counts["replies"] = len(replies)
+
+        # 4. Get boosts (if not filtering or filtering for boosts)
+        # Build include patterns (feed#post_id) for all posts from this profile
+        include_patterns = [f"{feed_url}#{post_id}" for post_id in profile_post_ids]
+
+        if not notification_type or notification_type == "boost":
+            boosts = (
+                Post.objects.filter(include__in=include_patterns)
+                .select_related("profile")
+                .order_by("-post_id")
+            )
+            for boost in boosts:
+                notifications_data.append(
+                    {
+                        "type": "boost",
+                        "post": f"{boost.profile.feed}#{boost.post_id}",
+                        "boosted": boost.include,
+                        "_sort_key": boost.post_id,
+                    }
+                )
+            counts["boosts"] = len(boosts)
 
         # Sort all notifications by post_id (most recent first)
         notifications_data.sort(key=lambda x: x["_sort_key"], reverse=True)

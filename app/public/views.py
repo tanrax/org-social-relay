@@ -40,6 +40,11 @@ def root_view(request):
                     "method": "GET",
                     "templated": True,
                 },
+                "boosts": {
+                    "href": "/boosts/?post={post_url}",
+                    "method": "GET",
+                    "templated": True,
+                },
                 "search": {
                     "href": "/search/?q={query}",
                     "method": "GET",

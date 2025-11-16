@@ -510,6 +510,7 @@ def scan_feeds():
                         "reply_to": properties.get("reply_to", ""),
                         "mood": properties.get("mood", ""),
                         "group": group_slug,
+                        "include": properties.get("include", ""),
                         "poll_end": None,
                     },
                 )
@@ -525,6 +526,7 @@ def scan_feeds():
                     post.reply_to = properties.get("reply_to", "")
                     post.mood = properties.get("mood", "")
                     post.group = group_slug
+                    post.include = properties.get("include", "")
                     post.save()
                     posts_updated += 1
 
