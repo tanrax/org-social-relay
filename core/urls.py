@@ -26,6 +26,7 @@ urlpatterns = [
     path("reactions/", include("app.reactions.urls")),
     path("replies-to/", include("app.repliesto.urls")),
     path("boosts/", include("app.boosts.urls")),
+    path("interactions/", include("app.interactions.urls")),
     path("notifications/", include("app.notifications.urls")),
     path("replies/", include("app.replies.urls")),
     path("search/", include("app.search.urls")),

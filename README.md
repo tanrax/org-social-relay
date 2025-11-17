@@ -179,6 +179,7 @@ curl http://localhost:8080/
         "reactions": {"href": "/reactions/?feed={feed_url}", "method": "GET", "templated": true},
         "replies-to": {"href": "/replies-to/?feed={feed_url}", "method": "GET", "templated": true},
         "boosts": {"href": "/boosts/?post={post_url}", "method": "GET", "templated": true},
+        "interactions": {"href": "/interactions/?post={post_url}", "method": "GET", "templated": true},
         "replies": {"href": "/replies/?post={post_url}", "method": "GET", "templated": true},
         "search": {"href": "/search/?q={query}", "method": "GET", "templated": true},
         "groups": {"href": "/groups/", "method": "GET"},
@@ -487,6 +488,77 @@ The response includes:
 To extract the booster's feed from each post URL, simply take the part before the `#` character. For example, from `https://alice.org/social.org#2025-02-05T14:00:00+0100`, the booster is `https://alice.org/social.org`.
 
 **Note:** According to Org Social specification, boosts are posts with the `:INCLUDE:` property pointing to the boosted post.
+
+### Get interactions (all-in-one)
+
+`/interactions/?post={url post}` - Get all interactions for a specific post in a single request. This endpoint consolidates reactions, replies, and boosts for optimal performance. Results are ordered from most recent to oldest.
+
+```sh
+# URL must be encoded when passed as query parameter
+curl "http://localhost:8080/interactions/?post=https%3A%2F%2Fexample.com%2Fsocial.org%232025-02-05T10%3A00%3A00%2B0100"
+
+# Or use curl's --data-urlencode for automatic encoding:
+curl -G "http://localhost:8080/interactions/" --data-urlencode "post=https://example.com/social.org#2025-02-05T10:00:00+0100"
+```
+
+```json
+{
+    "type": "Success",
+    "errors": [],
+    "data": {
+        "reactions": [
+            {
+                "post": "https://alice.org/social.org#2025-02-05T13:15:00+0100",
+                "emoji": "❤"
+            },
+            {
+                "post": "https://bob.org/social.org#2025-02-05T14:30:00+0100",
+                "emoji": "🚀"
+            }
+        ],
+        "replies": [
+            "https://charlie.org/social.org#2025-02-05T12:30:00+0100",
+            "https://diana.org/social.org#2025-02-05T15:00:00+0100"
+        ],
+        "boosts": [
+            "https://alice.org/social.org#2025-02-05T14:00:00+0100",
+            "https://bob.org/social.org#2025-02-05T15:30:00+0100"
+        ]
+    },
+    "meta": {
+        "post": "https://example.com/social.org#2025-02-05T10:00:00+0100",
+        "total_reactions": 2,
+        "total_replies": 2,
+        "total_boosts": 2,
+        "parentChain": [
+            "https://original.org/social.org#2025-02-04T09:00:00+0100",
+            "https://parent.org/social.org#2025-02-05T08:00:00+0100"
+        ]
+    },
+    "_links": {
+        "self": {"href": "/interactions/?post=https%3A%2F%2Fexample.com%2Fsocial.org%232025-02-05T10%3A00%3A00%2B0100", "method": "GET"},
+        "reactions": {"href": "/reactions/?feed=https%3A%2F%2Fexample.com%2Fsocial.org", "method": "GET"},
+        "replies": {"href": "/replies/?post=https%3A%2F%2Fexample.com%2Fsocial.org%232025-02-05T10%3A00%3A00%2B0100", "method": "GET"},
+        "boosts": {"href": "/boosts/?post=https%3A%2F%2Fexample.com%2Fsocial.org%232025-02-05T10%3A00%3A00%2B0100", "method": "GET"}
+    }
+}
+```
+
+The response includes:
+- `reactions`: Array of reaction objects with `post` (URL) and `emoji`
+- `replies`: Array of reply post URLs (excludes reactions - posts without mood)
+- `boosts`: Array of boost post URLs
+- `parentChain`: Array of parent post URLs from oldest to most recent (empty if post is root)
+
+**Note:** This endpoint is optimized for displaying post details in a single request. It excludes nested replies (use `/replies/?post={post_url}` for the full thread tree) and only includes direct replies to maintain simplicity and performance.
+
+The `parentChain` allows you to reconstruct the conversation context by showing all parent posts from the original root post up to the immediate parent. If the post is a reply to another post, you'll get the full chain; if it's a root post, the array will be empty.
+
+**Use cases:**
+- Display a post with all its interactions in one request
+- Show conversation context with parent chain
+- Optimize mobile/web apps by reducing HTTP requests
+- Get post engagement metrics (reactions, replies, boosts count)
 
 ### Get replies/threads
 
