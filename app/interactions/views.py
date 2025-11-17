@@ -2,11 +2,13 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.core.cache import cache
-from django.db.models import Q
 import logging
 
 from app.feeds.models import Post, Profile
 from app.feeds.utils import get_parent_chain
+from app.reactions.utils import get_reactions_for_post
+from app.replies.utils import get_direct_replies_for_post
+from app.boosts.utils import get_boosts_for_post
 
 logger = logging.getLogger(__name__)
 
@@ -64,15 +66,8 @@ class InteractionsView(APIView):
 
         original_post_url = f"{feed_url}#{post_id}"
 
-        # Get reactions (posts with mood and reply_to pointing to this post)
-        reactions_qs = (
-            Post.objects.filter(reply_to=original_post_url, mood__isnull=False)
-            .exclude(mood="")
-            .exclude(poll_votes__isnull=False)
-            .select_related("profile")
-            .order_by("-post_id")
-        )
-
+        # Get reactions using shared utility function
+        reactions_qs = get_reactions_for_post(original_post_url)
         reactions_data = [
             {
                 "post": f"{reaction.profile.feed}#{reaction.post_id}",
@@ -81,24 +76,12 @@ class InteractionsView(APIView):
             for reaction in reactions_qs
         ]
 
-        # Get replies (posts without mood replying to this post)
-        replies_qs = (
-            Post.objects.filter(reply_to=original_post_url)
-            .filter(Q(mood="") | Q(mood__isnull=True))
-            .exclude(poll_votes__isnull=False)
-            .select_related("profile")
-            .order_by("-post_id")
-        )
-
+        # Get replies using shared utility function
+        replies_qs = get_direct_replies_for_post(original_post_url)
         replies_data = [f"{reply.profile.feed}#{reply.post_id}" for reply in replies_qs]
 
-        # Get boosts (posts with include property pointing to this post)
-        boosts_qs = (
-            Post.objects.filter(include=original_post_url)
-            .select_related("profile")
-            .order_by("-post_id")
-        )
-
+        # Get boosts using shared utility function
+        boosts_qs = get_boosts_for_post(original_post_url)
         boosts_data = [f"{boost.profile.feed}#{boost.post_id}" for boost in boosts_qs]
 
         # Get parent chain
