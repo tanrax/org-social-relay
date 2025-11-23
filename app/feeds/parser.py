@@ -56,13 +56,54 @@ def _handle_feed_redirect(old_url: str, new_url: str):
                     # Merge profiles - keep the new one, migrate relationships
                     logger.info(f"Merging profile data: {old_profile.nick} -> {new_profile.nick}")
 
-                    # Update all Follow relationships where old_profile is followed
-                    Follow.objects.filter(followed=old_profile).update(followed=new_profile)
+                    # Migrate Follow relationships where old_profile is followed
+                    follows_as_followed = Follow.objects.filter(followed=old_profile)
+                    for follow in follows_as_followed:
+                        # Check if this relationship already exists with new_profile
+                        existing = Follow.objects.filter(
+                            follower=follow.follower,
+                            followed=new_profile
+                        ).first()
 
-                    # Update all Follow relationships where old_profile is follower
-                    Follow.objects.filter(follower=old_profile).update(follower=new_profile)
+                        if not existing:
+                            # Update to point to new_profile
+                            follow.followed = new_profile
+                            try:
+                                follow.save()
+                                logger.debug(f"Migrated follow relationship: {follow.follower.nick} -> {new_profile.nick}")
+                            except Exception as e:
+                                logger.warning(f"Could not migrate follow relationship, deleting: {e}")
+                                follow.delete()
+                        else:
+                            # Relationship already exists, delete duplicate
+                            follow.delete()
+                            logger.debug(f"Deleted duplicate follow relationship")
+
+                    # Migrate Follow relationships where old_profile is follower
+                    follows_as_follower = Follow.objects.filter(follower=old_profile)
+                    for follow in follows_as_follower:
+                        # Check if this relationship already exists with new_profile
+                        existing = Follow.objects.filter(
+                            follower=new_profile,
+                            followed=follow.followed
+                        ).first()
+
+                        if not existing:
+                            # Update to point to new_profile
+                            follow.follower = new_profile
+                            try:
+                                follow.save()
+                                logger.debug(f"Migrated follow relationship: {new_profile.nick} -> {follow.followed.nick}")
+                            except Exception as e:
+                                logger.warning(f"Could not migrate follow relationship, deleting: {e}")
+                                follow.delete()
+                        else:
+                            # Relationship already exists, delete duplicate
+                            follow.delete()
+                            logger.debug(f"Deleted duplicate follow relationship")
 
                     # Update all Mentions pointing to old_profile
+                    # Mentions don't have unique constraints, so bulk update is safe
                     Mention.objects.filter(mentioned_profile=old_profile).update(mentioned_profile=new_profile)
 
                     # Migrate posts from old_profile to new_profile (avoid duplicates)
