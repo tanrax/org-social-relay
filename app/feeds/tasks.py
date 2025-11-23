@@ -232,9 +232,12 @@ def discover_new_feeds_from_follows():
 
     for feed in all_feeds:
         try:
-            # Parse the org social file
+            # Parse the org social file (may update feed URL if redirected)
             parsed_data = parse_org_social(feed.url)
             successful_parses += 1
+
+            # Refresh feed from database (URL may have changed due to redirect)
+            feed.refresh_from_db()
 
             # Extract follow URLs from metadata
             follows = parsed_data.get("metadata", {}).get("follows", [])
@@ -403,9 +406,12 @@ def scan_feeds():
 
     for feed in all_feeds:
         try:
-            # Parse the org social file
+            # Parse the org social file (may update feed URL if redirected)
             parsed_data = parse_org_social(feed.url)
             successful_scans += 1
+
+            # Refresh feed from database (URL may have changed due to redirect)
+            feed.refresh_from_db()
 
             metadata = parsed_data.get("metadata", {})
             posts_data = parsed_data.get("posts", [])
