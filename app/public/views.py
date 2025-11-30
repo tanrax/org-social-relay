@@ -15,6 +15,11 @@ def root_view(request):
                 "self": {"href": "/", "method": "GET"},
                 "feeds": {"href": "/feeds/", "method": "GET"},
                 "add-feed": {"href": "/feeds/", "method": "POST"},
+                "feed-content": {
+                    "href": "/feed-content/?feed={feed_url}",
+                    "method": "GET",
+                    "templated": True,
+                },
                 "mentions": {
                     "href": "/mentions/?feed={feed_url}",
                     "method": "GET",

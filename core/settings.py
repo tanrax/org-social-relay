@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     "huey.contrib.djhuey",
     "app.public.apps.PublicConfig",
     "app.feeds.apps.FeedsConfig",
+    "app.feedcontent.apps.FeedcontentConfig",
     "app.polls.apps.PollsConfig",
     "app.replies.apps.RepliesConfig",
     "app.mentions.apps.MentionsConfig",
@@ -78,10 +79,13 @@ INSTALLED_APPS = [
     "app.search.apps.SearchConfig",
     "app.groups.apps.GroupsConfig",
     "app.rss.apps.RssConfig",
+    "app.boosts.apps.BoostsConfig",
+    "app.interactions.apps.InteractionsConfig",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "app.feeds.cors_middleware.CORSMiddleware",  # Add CORS headers to all responses
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "app.feeds.middleware.RelayMetadataMiddleware",  # Add global ETag/Last-Modified headers

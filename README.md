@@ -154,6 +154,18 @@ curl -i http://localhost:8080/mentions/?feed=https://example.com/social.org
 # Last-Modified: Wed, 01 Nov 2025 10:15:00 GMT
 ```
 
+### CORS (Cross-Origin Resource Sharing)
+
+All Relay endpoints have CORS enabled with `Access-Control-Allow-Origin: *`, allowing direct access from any frontend/web application. This means you can call the API directly from JavaScript in the browser without CORS restrictions.
+
+**Example:**
+```javascript
+// Fetch notifications directly from the browser
+fetch('http://localhost:8080/notifications/?feed=https://example.com/social.org')
+  .then(response => response.json())
+  .then(data => console.log(data));
+```
+
 ### Root
 
 `/` - Basic information about the relay.
@@ -174,6 +186,7 @@ curl http://localhost:8080/
         "self": {"href": "/", "method": "GET"},
         "feeds": {"href": "/feeds/", "method": "GET"},
         "add-feed": {"href": "/feeds/", "method": "POST"},
+        "feed-content": {"href": "/feed-content/?feed={feed_url}", "method": "GET", "templated": true},
         "notifications": {"href": "/notifications/?feed={feed_url}", "method": "GET", "templated": true},
         "mentions": {"href": "/mentions/?feed={feed_url}", "method": "GET", "templated": true},
         "reactions": {"href": "/reactions/?feed={feed_url}", "method": "GET", "templated": true},
@@ -559,6 +572,50 @@ The `parentChain` allows you to reconstruct the conversation context by showing 
 - Show conversation context with parent chain
 - Optimize mobile/web apps by reducing HTTP requests
 - Get post engagement metrics (reactions, replies, boosts count)
+
+### Get raw feed content
+
+`/feed-content/?feed={url feed}` - Get the raw content of an Org Social feed file. This endpoint fetches and returns the original `.org` file content from the specified feed URL.
+
+```sh
+# URL must be encoded when passed as query parameter
+curl "http://localhost:8080/feed-content/?feed=https%3A%2F%2Fexample.com%2Fsocial.org"
+
+# Or use curl's --data-urlencode for automatic encoding:
+curl -G "http://localhost:8080/feed-content/" --data-urlencode "feed=https://example.com/social.org"
+```
+
+```json
+{
+    "type": "Success",
+    "errors": [],
+    "data": {
+        "content": "#+TITLE: My Social Feed\n#+AUTHOR: John Doe\n\n* 2025-02-05T10:00:00+0100\n:PROPERTIES:\n:ID: 2025-02-05T10:00:00+0100\n:END:\n\nHello, world! This is my first post.\n\n* 2025-02-05T12:30:00+0100\n:PROPERTIES:\n:ID: 2025-02-05T12:30:00+0100\n:REPLY_TO: https://alice.org/social.org#2025-02-05T10:15:00+0100\n:END:\n\nThis is a reply to Alice's post.\n"
+    },
+    "_links": {
+        "self": {"href": "/feed-content/?feed=https%3A%2F%2Fexample.com%2Fsocial.org", "method": "GET"}
+    }
+}
+```
+
+The response includes:
+- `content`: The raw text content of the feed file (Org Mode format)
+
+**Use cases:**
+- Debug feed format issues
+- Parse feeds locally in client applications
+- Backup or archive feed content
+- Analyze feed structure and properties
+- Validate Org Social format compliance
+
+**Error handling:**
+- Returns 400 if the `feed` parameter is missing or invalid
+- Returns 404 if the feed is not registered in the relay
+- Returns 502 if the feed URL cannot be fetched (network error, server down, etc.)
+
+**Note:**
+- This endpoint fetches the feed content directly from the source URL in real-time and does not use cached data.
+- The content is returned exactly as stored in the original `.org` file, preserving all formatting, whitespace, and Org Mode properties.
 
 ### Get replies/threads
 

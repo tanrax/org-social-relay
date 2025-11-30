@@ -22,6 +22,7 @@ from app.feeds.views import FeedsView
 urlpatterns = [
     path("", root_view, name="root"),
     path("feeds/", FeedsView.as_view(), name="feeds"),
+    path("feed-content/", include("app.feedcontent.urls")),
     path("mentions/", include("app.mentions.urls")),
     path("reactions/", include("app.reactions.urls")),
     path("replies-to/", include("app.repliesto.urls")),
