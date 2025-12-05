@@ -34,4 +34,5 @@ urlpatterns = [
     path("groups/", include("app.groups.urls")),
     path("polls/", include("app.polls.urls")),
     path("rss.xml", include("app.rss.urls")),
+    path("sse/", include("app.sse_notifications.urls")),
 ]

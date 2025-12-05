@@ -35,6 +35,11 @@ def root_view(request):
                     "method": "GET",
                     "templated": True,
                 },
+                "sse-notifications": {
+                    "href": "/sse/notifications/?feed={feed_url}",
+                    "method": "GET",
+                    "templated": True,
+                },
                 "reactions": {
                     "href": "/reactions/?feed={feed_url}",
                     "method": "GET",

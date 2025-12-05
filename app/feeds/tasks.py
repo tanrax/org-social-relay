@@ -523,6 +523,46 @@ def scan_feeds():
 
                 if post_created:
                     posts_created += 1
+
+                    # Publish notifications for NEW posts
+                    from .notification_publisher import publish_notification
+
+                    # Check if this is a reply (with or without mood/reaction)
+                    if post.reply_to:
+                        reply_to_parts = post.reply_to.split("#")
+                        if len(reply_to_parts) == 2:
+                            replied_feed_url = reply_to_parts[0]
+
+                            # Determine if it's a reaction or a reply
+                            if post.mood and post.mood.strip():
+                                # It's a reaction
+                                publish_notification(
+                                    target_feed_url=replied_feed_url,
+                                    notification_type="reaction",
+                                    post_url=f"{feed.url}#{post_id}",
+                                    emoji=post.mood,
+                                    parent=post.reply_to,
+                                )
+                            else:
+                                # It's a regular reply
+                                publish_notification(
+                                    target_feed_url=replied_feed_url,
+                                    notification_type="reply",
+                                    post_url=f"{feed.url}#{post_id}",
+                                    parent=post.reply_to,
+                                )
+
+                    # Check if this is a boost
+                    if post.include:
+                        include_parts = post.include.split("#")
+                        if len(include_parts) == 2:
+                            boosted_feed_url = include_parts[0]
+                            publish_notification(
+                                target_feed_url=boosted_feed_url,
+                                notification_type="boost",
+                                post_url=f"{feed.url}#{post_id}",
+                                boosted=post.include,
+                            )
                 else:
                     # Update existing post
                     post.content = content
@@ -592,13 +632,15 @@ def scan_feeds():
                             f"Failed to process poll vote for post {post_id}: {e}"
                         )
 
-                # Handle mentions
+                # Handle mentions - FIXED to detect new mentions
                 mentions_data = post_data.get("mentions", [])
                 if mentions_data:
-                    # Clear existing mentions for this post
-                    post.mentions.all().delete()
+                    # Get existing mentions for this post
+                    existing_mentions = set(
+                        post.mentions.values_list("mentioned_profile__feed", flat=True)
+                    )
 
-                    # Create new mentions
+                    # Process each mention
                     for mention_info in mentions_data:
                         mention_url = mention_info.get("url", "").strip()
                         mention_nickname = mention_info.get("nickname", "").strip()
@@ -615,16 +657,30 @@ def scan_feeds():
                                 feed=base_mention_url
                             )
 
-                            # Create the mention
-                            Mention.objects.get_or_create(
-                                post=post,
-                                mentioned_profile=mentioned_profile,
-                                defaults={"nickname": mention_nickname},
-                            )
+                            # Only create if it doesn't exist (to detect new mentions)
+                            if base_mention_url not in existing_mentions:
+                                mention, mention_created = (
+                                    Mention.objects.get_or_create(
+                                        post=post,
+                                        mentioned_profile=mentioned_profile,
+                                        defaults={"nickname": mention_nickname},
+                                    )
+                                )
+
+                                # If this is a NEW mention, publish notification
+                                if mention_created:
+                                    from .notification_publisher import (
+                                        publish_notification,
+                                    )
+
+                                    publish_notification(
+                                        target_feed_url=base_mention_url,
+                                        notification_type="mention",
+                                        post_url=f"{feed.url}#{post_id}",
+                                    )
 
                         except Profile.DoesNotExist:
                             # The mentioned profile doesn't exist in our database
-                            # We could optionally log this or create a placeholder profile
                             logger.debug(f"Mentioned profile not found: {mention_url}")
                             continue
                         except Exception as e:

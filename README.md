@@ -188,6 +188,7 @@ curl http://localhost:8080/
         "add-feed": {"href": "/feeds/", "method": "POST"},
         "feed-content": {"href": "/feed-content/?feed={feed_url}", "method": "GET", "templated": true},
         "notifications": {"href": "/notifications/?feed={feed_url}", "method": "GET", "templated": true},
+        "sse-notifications": {"href": "/sse/notifications/?feed={feed_url}", "method": "GET", "templated": true},
         "mentions": {"href": "/mentions/?feed={feed_url}", "method": "GET", "templated": true},
         "reactions": {"href": "/reactions/?feed={feed_url}", "method": "GET", "templated": true},
         "replies-to": {"href": "/replies-to/?feed={feed_url}", "method": "GET", "templated": true},
@@ -329,6 +330,46 @@ The `by_type` breakdown in `meta` allows you to show notification counts per typ
 - `type`: Filter by notification type (`mention`, `reaction`, `reply`, `boost`)
   - Example: `/notifications/?feed={feed}&type=reaction`
   - Example: `/notifications/?feed={feed}&type=boost`
+
+### Real-time notifications (SSE)
+
+`/sse/notifications/?feed={url feed}` - Subscribe to real-time notifications via Server-Sent Events.
+
+```sh
+curl -N "http://localhost:8080/sse/notifications/?feed=https://example.com/social.org"
+```
+
+**Events:**
+
+- `connected` - Connection established
+  ```
+  event: connected
+  data: {"feed": "https://example.com/social.org", "status": "connected"}
+  ```
+
+- `heartbeat` - Connection keepalive (every 30s)
+  ```
+  event: heartbeat
+  data: {"status": "alive", "timestamp": 1733392800}
+  ```
+
+- `notification` - New notification received (same structure as `/notifications/`)
+  ```
+  event: notification
+  data: {"type": "mention", "post": "https://alice.org/social.org#2025-02-05T11:20:00+0100"}
+  ```
+  ```
+  event: notification
+  data: {"type": "reply", "post": "https://bob.org/social.org#...", "parent": "https://example.com/social.org#..."}
+  ```
+  ```
+  event: notification
+  data: {"type": "reaction", "post": "https://carol.org/social.org#...", "emoji": "❤", "parent": "https://example.com/social.org#..."}
+  ```
+  ```
+  event: notification
+  data: {"type": "boost", "post": "https://dave.org/social.org#...", "boosted": "https://example.com/social.org#..."}
+  ```
 
 ### Get mentions
 

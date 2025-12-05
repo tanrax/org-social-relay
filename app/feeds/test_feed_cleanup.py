@@ -25,6 +25,9 @@ class FeedCleanupTest(TestCase):
 
 * Posts
 """
+        mock_response.content = mock_response.text.encode("utf-8")
+        mock_response.url = feed_url  # No redirect
+        mock_response.history = []  # No redirect history
         mock_response.raise_for_status = Mock()
 
         # When: We parse the feed and it returns HTTP 200
@@ -55,6 +58,9 @@ class FeedCleanupTest(TestCase):
 
 * Posts
 """
+        mock_response.content = mock_response.text.encode("utf-8")
+        mock_response.url = feed_url  # No redirect
+        mock_response.history = []  # No redirect history
 
         # When: We validate the feed and it returns HTTP 200
         with patch("requests.get", return_value=mock_response):

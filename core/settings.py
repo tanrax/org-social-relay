@@ -81,6 +81,7 @@ INSTALLED_APPS = [
     "app.rss.apps.RssConfig",
     "app.boosts.apps.BoostsConfig",
     "app.interactions.apps.InteractionsConfig",
+    "app.sse_notifications.apps.SseNotificationsConfig",
 ]
 
 MIDDLEWARE = [

@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 class ReactionsView(APIView):
     """Get reactions for a specific feed URL"""
+
     renderer_classes = [UTF8JSONRenderer]
 
     def get(self, request):

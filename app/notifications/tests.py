@@ -370,8 +370,12 @@ class NotificationsViewTest(TestCase):
 
         boost_notif = boost_notifications[0]
         self.assertEqual(boost_notif["type"], "boost")
-        self.assertEqual(boost_notif["post"], f"{self.profile2.feed}#{boost_post.post_id}")
-        self.assertEqual(boost_notif["boosted"], f"{self.profile1.feed}#{self.post1.post_id}")
+        self.assertEqual(
+            boost_notif["post"], f"{self.profile2.feed}#{boost_post.post_id}"
+        )
+        self.assertEqual(
+            boost_notif["boosted"], f"{self.profile1.feed}#{self.post1.post_id}"
+        )
 
         # Then: Meta should include boost count
         meta = response.data["meta"]

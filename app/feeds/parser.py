@@ -45,7 +45,7 @@ def _handle_feed_redirect(old_url: str, new_url: str):
         if old_feed and new_feed:
             # Both URLs exist - merge them
             logger.info(f"Feed redirect detected: {old_url} -> {new_url}")
-            logger.info(f"Both feeds exist. Merging old feed into new feed.")
+            logger.info("Both feeds exist. Merging old feed into new feed.")
 
             with transaction.atomic():
                 # Get profiles for both feeds
@@ -54,15 +54,16 @@ def _handle_feed_redirect(old_url: str, new_url: str):
 
                 if old_profile and new_profile:
                     # Merge profiles - keep the new one, migrate relationships
-                    logger.info(f"Merging profile data: {old_profile.nick} -> {new_profile.nick}")
+                    logger.info(
+                        f"Merging profile data: {old_profile.nick} -> {new_profile.nick}"
+                    )
 
                     # Migrate Follow relationships where old_profile is followed
                     follows_as_followed = Follow.objects.filter(followed=old_profile)
                     for follow in follows_as_followed:
                         # Check if this relationship already exists with new_profile
                         existing = Follow.objects.filter(
-                            follower=follow.follower,
-                            followed=new_profile
+                            follower=follow.follower, followed=new_profile
                         ).first()
 
                         if not existing:
@@ -70,22 +71,25 @@ def _handle_feed_redirect(old_url: str, new_url: str):
                             follow.followed = new_profile
                             try:
                                 follow.save()
-                                logger.debug(f"Migrated follow relationship: {follow.follower.nick} -> {new_profile.nick}")
+                                logger.debug(
+                                    f"Migrated follow relationship: {follow.follower.nick} -> {new_profile.nick}"
+                                )
                             except Exception as e:
-                                logger.warning(f"Could not migrate follow relationship, deleting: {e}")
+                                logger.warning(
+                                    f"Could not migrate follow relationship, deleting: {e}"
+                                )
                                 follow.delete()
                         else:
                             # Relationship already exists, delete duplicate
                             follow.delete()
-                            logger.debug(f"Deleted duplicate follow relationship")
+                            logger.debug("Deleted duplicate follow relationship")
 
                     # Migrate Follow relationships where old_profile is follower
                     follows_as_follower = Follow.objects.filter(follower=old_profile)
                     for follow in follows_as_follower:
                         # Check if this relationship already exists with new_profile
                         existing = Follow.objects.filter(
-                            follower=new_profile,
-                            followed=follow.followed
+                            follower=new_profile, followed=follow.followed
                         ).first()
 
                         if not existing:
@@ -93,33 +97,40 @@ def _handle_feed_redirect(old_url: str, new_url: str):
                             follow.follower = new_profile
                             try:
                                 follow.save()
-                                logger.debug(f"Migrated follow relationship: {new_profile.nick} -> {follow.followed.nick}")
+                                logger.debug(
+                                    f"Migrated follow relationship: {new_profile.nick} -> {follow.followed.nick}"
+                                )
                             except Exception as e:
-                                logger.warning(f"Could not migrate follow relationship, deleting: {e}")
+                                logger.warning(
+                                    f"Could not migrate follow relationship, deleting: {e}"
+                                )
                                 follow.delete()
                         else:
                             # Relationship already exists, delete duplicate
                             follow.delete()
-                            logger.debug(f"Deleted duplicate follow relationship")
+                            logger.debug("Deleted duplicate follow relationship")
 
                     # Update all Mentions pointing to old_profile
                     # Mentions don't have unique constraints, so bulk update is safe
-                    Mention.objects.filter(mentioned_profile=old_profile).update(mentioned_profile=new_profile)
+                    Mention.objects.filter(mentioned_profile=old_profile).update(
+                        mentioned_profile=new_profile
+                    )
 
                     # Migrate posts from old_profile to new_profile (avoid duplicates)
                     old_posts = Post.objects.filter(profile=old_profile)
                     for old_post in old_posts:
                         # Check if post already exists in new profile
                         existing_post = Post.objects.filter(
-                            profile=new_profile,
-                            post_id=old_post.post_id
+                            profile=new_profile, post_id=old_post.post_id
                         ).first()
 
                         if not existing_post:
                             # Migrate post to new profile
                             old_post.profile = new_profile
                             old_post.save()
-                            logger.debug(f"Migrated post {old_post.post_id} to new profile")
+                            logger.debug(
+                                f"Migrated post {old_post.post_id} to new profile"
+                            )
                         else:
                             # Post already exists, handle poll votes carefully
                             # Get all poll votes pointing to old_post
@@ -128,22 +139,25 @@ def _handle_feed_redirect(old_url: str, new_url: str):
                                 try:
                                     # Check if this vote already exists for the existing_post
                                     existing_vote = PollVote.objects.filter(
-                                        post=poll_vote.post,
-                                        poll_post=existing_post
+                                        post=poll_vote.post, poll_post=existing_post
                                     ).first()
 
                                     if not existing_vote:
                                         # Update to point to existing_post
                                         poll_vote.poll_post = existing_post
                                         poll_vote.save()
-                                        logger.debug(f"Migrated poll vote to existing post")
+                                        logger.debug(
+                                            "Migrated poll vote to existing post"
+                                        )
                                     else:
                                         # Vote already exists, delete duplicate
                                         poll_vote.delete()
-                                        logger.debug(f"Deleted duplicate poll vote")
+                                        logger.debug("Deleted duplicate poll vote")
                                 except Exception as e:
                                     # If there's any constraint error, just delete the vote
-                                    logger.warning(f"Error migrating poll vote, deleting: {e}")
+                                    logger.warning(
+                                        f"Error migrating poll vote, deleting: {e}"
+                                    )
                                     poll_vote.delete()
 
                             # Delete duplicate post
@@ -175,7 +189,9 @@ def _handle_feed_redirect(old_url: str, new_url: str):
                 old_feed.save()
 
                 # Update all profiles pointing to old URL
-                profiles_updated = Profile.objects.filter(feed=old_url).update(feed=new_url)
+                profiles_updated = Profile.objects.filter(feed=old_url).update(
+                    feed=new_url
+                )
                 logger.info(f"Updated {profiles_updated} profile(s) to new URL")
 
         # If new_feed exists but not old_feed, nothing to do
@@ -183,7 +199,9 @@ def _handle_feed_redirect(old_url: str, new_url: str):
 
     except Exception as e:
         # Don't break parsing if redirect handling fails
-        logger.error(f"Failed to handle redirect {old_url} -> {new_url}: {e}", exc_info=True)
+        logger.error(
+            f"Failed to handle redirect {old_url} -> {new_url}: {e}", exc_info=True
+        )
 
 
 def parse_org_social(url: str) -> Dict[str, Any]:
@@ -201,13 +219,15 @@ def parse_org_social(url: str) -> Dict[str, Any]:
         response.raise_for_status()
         # Decode content as UTF-8 explicitly to avoid encoding issues
         # when the server doesn't specify charset in Content-Type header
-        content = response.content.decode('utf-8')
+        content = response.content.decode("utf-8")
 
         # Check if URL was redirected
         final_url = response.url
         if final_url != url and response.history:
             # URL was redirected - handle the redirect
-            logger.info(f"Redirect detected: {url} -> {final_url} (status: {response.history[0].status_code})")
+            logger.info(
+                f"Redirect detected: {url} -> {final_url} (status: {response.history[0].status_code})"
+            )
             _handle_feed_redirect(url, final_url)
             # Use final URL for further operations
             url = final_url
@@ -489,7 +509,7 @@ def validate_org_social_feed(url: str) -> Tuple[bool, str]:
         _update_feed_last_successful_fetch(url)
 
         # Decode content as UTF-8 explicitly to avoid encoding issues
-        content = response.content.decode('utf-8')
+        content = response.content.decode("utf-8")
 
         # Check if content has basic Org Social structure
         # At minimum should have at least one #+TITLE, #+NICK, or #+DESCRIPTION (case insensitive)

@@ -4,15 +4,18 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('feeds', '0007_relaymetadata'),
+        ("feeds", "0007_relaymetadata"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='post',
-            name='include',
-            field=models.CharField(blank=True, help_text='Post being boosted/shared (URL#ID format)', max_length=300),
+            model_name="post",
+            name="include",
+            field=models.CharField(
+                blank=True,
+                help_text="Post being boosted/shared (URL#ID format)",
+                max_length=300,
+            ),
         ),
     ]
