@@ -68,14 +68,23 @@ class SSENotificationsView(View):
                 last_heartbeat = time.time()
                 heartbeat_interval = 30  # seconds
 
-                # Listen for messages with timeout for heartbeat
-                for message in pubsub.listen():
+                # Use a while loop with get_message(timeout=1) instead of listen()
+                # This allows heartbeats to be sent even when there are no messages
+                while True:
                     # Send heartbeat every 30 seconds to keep connection alive
                     current_time = time.time()
                     if current_time - last_heartbeat >= heartbeat_interval:
                         yield "event: heartbeat\n"
                         yield f"data: {json.dumps({'status': 'alive', 'timestamp': int(current_time)})}\n\n"
                         last_heartbeat = current_time
+
+                    # Check for messages with 1 second timeout
+                    # This prevents blocking and allows heartbeat to run regularly
+                    message = pubsub.get_message(timeout=1)
+
+                    if message is None:
+                        # No message received, continue to next iteration (will check heartbeat)
+                        continue
 
                     # Process Redis messages
                     if message["type"] == "message":
