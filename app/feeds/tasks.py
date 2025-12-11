@@ -447,9 +447,6 @@ def scan_feeds():
                     profile.save()
                     profiles_updated += 1
                     logger.info(f"Updated profile: {profile.nick} ({feed.url})")
-                else:
-                    # No changes detected, skip processing
-                    continue
 
             # Update profile relationships (clear and recreate)
             profile.links.all().delete()
@@ -687,6 +684,27 @@ def scan_feeds():
                             logger.warning(
                                 f"Failed to create mention for {mention_url} in post {post_id}: {e}"
                             )
+
+            # Detect and remove deleted posts
+            # Get all post IDs from the current feed scan
+            current_post_ids = {post_data.get("id", "") for post_data in posts_data}
+            current_post_ids.discard("")  # Remove empty IDs
+
+            # Get all post IDs currently in database for this profile
+            existing_posts = Post.objects.filter(profile=profile)
+            existing_post_ids = set(existing_posts.values_list("post_id", flat=True))
+
+            # Find posts that are in DB but not in current feed (deleted posts)
+            deleted_post_ids = existing_post_ids - current_post_ids
+
+            if deleted_post_ids:
+                # Delete posts that no longer exist in the feed
+                deleted_count = Post.objects.filter(
+                    profile=profile, post_id__in=deleted_post_ids
+                ).delete()[0]
+                logger.info(
+                    f"Removed {deleted_count} deleted post(s) from {feed.url}: {deleted_post_ids}"
+                )
 
         except requests.RequestException as e:
             failed_scans += 1
