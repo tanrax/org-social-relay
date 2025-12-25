@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 import logging
 
 logger = logging.getLogger(__name__)
@@ -133,7 +134,10 @@ class Post(models.Model):
     )
 
     # Metadata
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(
+        default=timezone.now,
+        help_text="Creation timestamp, parsed from post_id when available",
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

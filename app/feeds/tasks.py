@@ -479,6 +479,16 @@ def scan_feeds():
                 content = post_data.get("content", "")
                 properties = post_data.get("properties", {})
 
+                # Parse post_id as timestamp for created_at
+                # post_id is in RFC 3339 format (e.g., "2025-01-01T12:00:00+00:00")
+                post_created_at = timezone.now()  # Default fallback
+                try:
+                    post_created_at = date_parser.parse(post_id)
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to parse post_id {post_id} as timestamp: {e}. Using current time."
+                    )
+
                 # Extract group name from GROUP property
                 # Format: "Emacs https://org-social-relay.andros.dev" or just "Emacs"
                 # Group names can have spaces and capitals - we slugify them
@@ -515,6 +525,7 @@ def scan_feeds():
                         "group": group_slug,
                         "include": properties.get("include", ""),
                         "poll_end": None,
+                        "created_at": post_created_at,
                     },
                 )
 
