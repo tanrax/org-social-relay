@@ -641,3 +641,106 @@ Great work!
         # Then: Verify we're using response.content, not response.text
         # This is critical to avoid double-encoding
         mock_get.assert_called_once_with("https://example.com/social.org", timeout=5)
+
+    def test_parse_v16_metadata_fields(self):
+        """Test parsing v1.6 metadata fields (LOCATION, BIRTHDAY, LANGUAGE, PINNED)."""
+        # Given: An org social content with v1.6 metadata fields
+        content = """#+TITLE: Test User Profile
+#+NICK: test_user
+#+DESCRIPTION: Test description
+#+AVATAR: https://example.com/avatar.jpg
+#+LOCATION: Valencia, Spain
+#+BIRTHDAY: 1990-05-15
+#+LANGUAGE: en es ca
+#+PINNED: 2025-01-15T10:00:00+0100
+
+* Posts
+** 2025-01-15T10:00:00+0100
+:PROPERTIES:
+:END:
+
+This is my pinned post.
+
+** 2025-01-16T12:00:00+0100
+:PROPERTIES:
+:END:
+
+This is a regular post.
+"""
+
+        # When: We parse the content
+        from app.feeds.parser import parse_org_social_content
+
+        result = parse_org_social_content(content)
+
+        # Then: All v1.6 metadata fields should be correctly parsed
+        self.assertEqual(result["metadata"]["location"], "Valencia, Spain")
+        self.assertEqual(result["metadata"]["birthday"], "1990-05-15")
+        self.assertEqual(result["metadata"]["language"], "en es ca")
+        self.assertEqual(result["metadata"]["pinned"], "2025-01-15T10:00:00+0100")
+
+        # Then: Posts should be parsed correctly
+        self.assertEqual(len(result["posts"]), 2)
+
+    def test_parse_post_id_in_header(self):
+        """Test parsing post ID from header (v1.6 feature)."""
+        # Given: An org social content with post ID in header
+        content = """#+TITLE: Test
+#+NICK: test_user
+
+* Posts
+** 2025-01-15T10:00:00+0100
+:PROPERTIES:
+:LANG: en
+:END:
+
+This post has ID in the header.
+
+**
+:PROPERTIES:
+:ID: 2025-01-16T12:00:00+0100
+:END:
+
+This post has ID in properties.
+"""
+
+        # When: We parse the content
+        from app.feeds.parser import parse_org_social_content
+
+        result = parse_org_social_content(content)
+
+        # Then: Both posts should have correct IDs
+        self.assertEqual(len(result["posts"]), 2)
+
+        # Then: First post should have ID from header
+        post1 = result["posts"][0]
+        self.assertEqual(post1["id"], "2025-01-15T10:00:00+0100")
+
+        # Then: Second post should have ID from properties
+        post2 = result["posts"][1]
+        self.assertEqual(post2["id"], "2025-01-16T12:00:00+0100")
+
+    def test_parse_post_id_priority_header_over_property(self):
+        """Test that header ID takes priority over property ID (v1.6 spec)."""
+        # Given: An org social content with post ID in both header and properties
+        content = """#+TITLE: Test
+#+NICK: test_user
+
+* Posts
+** 2025-01-15T10:00:00+0100
+:PROPERTIES:
+:ID: 2025-01-16T12:00:00+0100
+:END:
+
+This post has ID in both places. Header should take priority.
+"""
+
+        # When: We parse the content
+        from app.feeds.parser import parse_org_social_content
+
+        result = parse_org_social_content(content)
+
+        # Then: Post should have ID from header (priority)
+        self.assertEqual(len(result["posts"]), 1)
+        post = result["posts"][0]
+        self.assertEqual(post["id"], "2025-01-15T10:00:00+0100")

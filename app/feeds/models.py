@@ -19,6 +19,20 @@ class Profile(models.Model):
     avatar = models.URLField(
         blank=True, help_text="URL to avatar image (128x128px JPG/PNG)"
     )
+    location = models.CharField(
+        max_length=200, blank=True, help_text="User location (city, country, etc.)"
+    )
+    birthday = models.DateField(
+        blank=True, null=True, help_text="User birthday in YYYY-MM-DD format"
+    )
+    language = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Space-separated language codes (ISO 639-1)",
+    )
+    pinned = models.CharField(
+        max_length=50, blank=True, help_text="Pinned post ID (timestamp)"
+    )
     version = models.CharField(
         max_length=50,
         blank=True,

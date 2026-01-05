@@ -261,6 +261,10 @@ def discover_new_feeds_from_follows():
                         "nick": metadata.get("nick", ""),
                         "description": metadata.get("description", ""),
                         "avatar": metadata.get("avatar", ""),
+                        "location": metadata.get("location", ""),
+                        "birthday": metadata.get("birthday") or None,
+                        "language": metadata.get("language", ""),
+                        "pinned": metadata.get("pinned", ""),
                         "version": content_hash,
                     },
                 )
@@ -428,6 +432,10 @@ def scan_feeds():
                     "nick": metadata.get("nick", ""),
                     "description": metadata.get("description", ""),
                     "avatar": metadata.get("avatar", ""),
+                    "location": metadata.get("location", ""),
+                    "birthday": metadata.get("birthday") or None,
+                    "language": metadata.get("language", ""),
+                    "pinned": metadata.get("pinned", ""),
                     "version": content_hash,
                 },
             )
@@ -443,6 +451,10 @@ def scan_feeds():
                     profile.nick = metadata.get("nick", "")
                     profile.description = metadata.get("description", "")
                     profile.avatar = metadata.get("avatar", "")
+                    profile.location = metadata.get("location", "")
+                    profile.birthday = metadata.get("birthday") or None
+                    profile.language = metadata.get("language", "")
+                    profile.pinned = metadata.get("pinned", "")
                     profile.version = content_hash
                     profile.save()
                     profiles_updated += 1

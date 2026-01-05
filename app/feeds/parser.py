@@ -246,6 +246,10 @@ def parse_org_social(url: str) -> Dict[str, Any]:
             "nick": "",
             "description": "",
             "avatar": "",
+            "location": "",
+            "birthday": "",
+            "language": "",
+            "pinned": "",
             "links": [],
             "follows": [],
             "contacts": [],
@@ -273,6 +277,25 @@ def parse_org_social(url: str) -> Dict[str, Any]:
 
     avatar_match = re.search(r"^\s*\#\+AVATAR:\s*(.+)$", content, re.MULTILINE)
     result["metadata"]["avatar"] = avatar_match.group(1).strip() if avatar_match else ""
+
+    # Parse new v1.6 fields
+    location_match = re.search(r"^\s*\#\+LOCATION:\s*(.+)$", content, re.MULTILINE)
+    result["metadata"]["location"] = (
+        location_match.group(1).strip() if location_match else ""
+    )
+
+    birthday_match = re.search(r"^\s*\#\+BIRTHDAY:\s*(.+)$", content, re.MULTILINE)
+    result["metadata"]["birthday"] = (
+        birthday_match.group(1).strip() if birthday_match else ""
+    )
+
+    language_match = re.search(r"^\s*\#\+LANGUAGE:\s*(.+)$", content, re.MULTILINE)
+    result["metadata"]["language"] = (
+        language_match.group(1).strip() if language_match else ""
+    )
+
+    pinned_match = re.search(r"^\s*\#\+PINNED:\s*(.+)$", content, re.MULTILINE)
+    result["metadata"]["pinned"] = pinned_match.group(1).strip() if pinned_match else ""
 
     # Parse multiple values
     result["metadata"]["links"] = [
@@ -305,14 +328,18 @@ def parse_org_social(url: str) -> Dict[str, Any]:
         # Split posts by ** headers (exactly 2 asterisks, not 3+)
         # Use negative lookahead (?!\*) to ensure we don't match *** or ****
         # Use ^ anchor to match ** only at start of line
-        post_pattern = r"^\*\*(?!\*)[^\n]*\n(?::PROPERTIES:\s*\n((?::[^:\n]+:[^\n]*\n)*):END:\s*\n)?(.*?)(?=^\*\*(?!\*)|\Z)"
+        # Capture group 1: header content (can contain ID in v1.6)
+        # Capture group 2: properties text
+        # Capture group 3: post content
+        post_pattern = r"^\*\*(?!\*)([^\n]*)\n(?::PROPERTIES:\s*\n((?::[^:\n]+:[^\n]*\n)*):END:\s*\n)?(.*?)(?=^\*\*(?!\*)|\Z)"
         post_matches = re.finditer(
             post_pattern, posts_content, re.DOTALL | re.MULTILINE
         )
 
         for post_match in post_matches:
-            properties_text = post_match.group(1) or ""
-            content_text = post_match.group(2).strip() if post_match.group(2) else ""
+            header_text = post_match.group(1).strip() if post_match.group(1) else ""
+            properties_text = post_match.group(2) or ""
+            content_text = post_match.group(3).strip() if post_match.group(3) else ""
 
             post: Dict[str, Any] = {
                 "id": "",
@@ -321,6 +348,17 @@ def parse_org_social(url: str) -> Dict[str, Any]:
                 "mentions": [],
                 "poll_options": [],
             }
+
+            # First check if ID is in header (v1.6 feature)
+            # Header ID takes priority over property drawer ID
+            if header_text:
+                # RFC 3339 format: ####-##-##T##:##:##[+-]####
+                header_id_match = re.match(
+                    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:?\d{2}$",
+                    header_text,
+                )
+                if header_id_match:
+                    post["id"] = header_text
 
             # Parse properties
             if properties_text:
@@ -332,7 +370,8 @@ def parse_org_social(url: str) -> Dict[str, Any]:
                     # Only add non-empty properties
                     if prop_value:
                         post["properties"][prop_name] = prop_value
-                        if prop_name == "id":
+                        # If ID not already set from header, use property ID
+                        if prop_name == "id" and not post["id"]:
                             post["id"] = prop_value
 
             # Extract mentions from content
@@ -372,6 +411,10 @@ def parse_org_social_content(content: str) -> Dict[str, Any]:
             "nick": "",
             "description": "",
             "avatar": "",
+            "location": "",
+            "birthday": "",
+            "language": "",
+            "pinned": "",
             "links": [],
             "follows": [],
             "contacts": [],
@@ -399,6 +442,25 @@ def parse_org_social_content(content: str) -> Dict[str, Any]:
 
     avatar_match = re.search(r"^\s*\#\+AVATAR:\s*(.+)$", content, re.MULTILINE)
     result["metadata"]["avatar"] = avatar_match.group(1).strip() if avatar_match else ""
+
+    # Parse new v1.6 fields
+    location_match = re.search(r"^\s*\#\+LOCATION:\s*(.+)$", content, re.MULTILINE)
+    result["metadata"]["location"] = (
+        location_match.group(1).strip() if location_match else ""
+    )
+
+    birthday_match = re.search(r"^\s*\#\+BIRTHDAY:\s*(.+)$", content, re.MULTILINE)
+    result["metadata"]["birthday"] = (
+        birthday_match.group(1).strip() if birthday_match else ""
+    )
+
+    language_match = re.search(r"^\s*\#\+LANGUAGE:\s*(.+)$", content, re.MULTILINE)
+    result["metadata"]["language"] = (
+        language_match.group(1).strip() if language_match else ""
+    )
+
+    pinned_match = re.search(r"^\s*\#\+PINNED:\s*(.+)$", content, re.MULTILINE)
+    result["metadata"]["pinned"] = pinned_match.group(1).strip() if pinned_match else ""
 
     # Parse multiple values
     result["metadata"]["links"] = [
@@ -431,14 +493,18 @@ def parse_org_social_content(content: str) -> Dict[str, Any]:
         # Split posts by ** headers (exactly 2 asterisks, not 3+)
         # Use negative lookahead (?!\*) to ensure we don't match *** or ****
         # Use ^ anchor to match ** only at start of line
-        post_pattern = r"^\*\*(?!\*)[^\n]*\n(?::PROPERTIES:\s*\n((?::[^:\n]+:[^\n]*\n)*):END:\s*\n)?(.*?)(?=^\*\*(?!\*)|\Z)"
+        # Capture group 1: header content (can contain ID in v1.6)
+        # Capture group 2: properties text
+        # Capture group 3: post content
+        post_pattern = r"^\*\*(?!\*)([^\n]*)\n(?::PROPERTIES:\s*\n((?::[^:\n]+:[^\n]*\n)*):END:\s*\n)?(.*?)(?=^\*\*(?!\*)|\Z)"
         post_matches = re.finditer(
             post_pattern, posts_content, re.DOTALL | re.MULTILINE
         )
 
         for post_match in post_matches:
-            properties_text = post_match.group(1) or ""
-            content_text = post_match.group(2).strip() if post_match.group(2) else ""
+            header_text = post_match.group(1).strip() if post_match.group(1) else ""
+            properties_text = post_match.group(2) or ""
+            content_text = post_match.group(3).strip() if post_match.group(3) else ""
 
             post: Dict[str, Any] = {
                 "id": "",
@@ -447,6 +513,17 @@ def parse_org_social_content(content: str) -> Dict[str, Any]:
                 "mentions": [],
                 "poll_options": [],
             }
+
+            # First check if ID is in header (v1.6 feature)
+            # Header ID takes priority over property drawer ID
+            if header_text:
+                # RFC 3339 format: ####-##-##T##:##:##[+-]####
+                header_id_match = re.match(
+                    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:?\d{2}$",
+                    header_text,
+                )
+                if header_id_match:
+                    post["id"] = header_text
 
             # Parse properties
             if properties_text:
@@ -458,7 +535,8 @@ def parse_org_social_content(content: str) -> Dict[str, Any]:
                     # Only add non-empty properties
                     if prop_value:
                         post["properties"][prop_name] = prop_value
-                        if prop_name == "id":
+                        # If ID not already set from header, use property ID
+                        if prop_name == "id" and not post["id"]:
                             post["id"] = prop_value
 
             # Extract mentions from content
