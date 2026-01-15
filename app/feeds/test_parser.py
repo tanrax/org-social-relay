@@ -744,3 +744,198 @@ This post has ID in both places. Header should take priority.
         self.assertEqual(len(result["posts"]), 1)
         post = result["posts"][0]
         self.assertEqual(post["id"], "2025-01-15T10:00:00+0100")
+
+    @patch("app.feeds.parser.requests.get")
+    def test_parse_feed_with_301_redirect(self, mock_get):
+        """Test that feed redirects (301) are properly detected and handled."""
+        # Given: A feed URL that redirects to a new URL
+        old_url = "https://old.example.com/social.org"
+        new_url = "https://new.example.com/social.org"
+
+        content = """#+TITLE: Test User
+#+NICK: test_user
+
+* Posts
+** 2025-01-15T10:00:00+0100
+:PROPERTIES:
+:END:
+
+Test post
+"""
+
+        # Given: Mock response with redirect history
+        mock_redirect = Mock()
+        mock_redirect.status_code = 301
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.content = content.encode("utf-8")
+        mock_response.url = new_url  # Final URL after redirect
+        mock_response.history = [mock_redirect]  # Redirect happened
+        mock_response.raise_for_status = Mock()
+        mock_get.return_value = mock_response
+
+        # When: We parse the feed from old URL
+        from app.feeds.parser import parse_org_social
+
+        result = parse_org_social(old_url)
+
+        # Then: The content should be parsed correctly
+        self.assertEqual(result["metadata"]["nick"], "test_user")
+        self.assertEqual(len(result["posts"]), 1)
+
+    @patch("app.feeds.parser.requests.get")
+    def test_validate_feed_with_301_redirect(self, mock_get):
+        """Test that feed validation handles redirects properly."""
+        # Given: A feed URL that redirects to a new URL
+        old_url = "https://old.example.com/social.org"
+        new_url = "https://new.example.com/social.org"
+
+        content = """#+TITLE: Test User
+#+NICK: test_user
+
+* Posts
+"""
+
+        # Given: Mock response with redirect history
+        mock_redirect = Mock()
+        mock_redirect.status_code = 301
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.content = content.encode("utf-8")
+        mock_response.url = new_url  # Final URL after redirect
+        mock_response.history = [mock_redirect]  # Redirect happened
+        mock_response.raise_for_status = Mock()
+        mock_get.return_value = mock_response
+
+        # When: We validate the feed
+        from app.feeds.parser import validate_org_social_feed
+
+        is_valid, error_message = validate_org_social_feed(old_url)
+
+        # Then: The feed should be valid
+        self.assertTrue(is_valid)
+        self.assertEqual(error_message, "")
+
+
+class FeedRedirectHandlerTest(TestCase):
+    """Test cases for feed redirect handling logic."""
+
+    def test_handle_redirect_updates_feed_url_when_only_old_exists(self):
+        """Test updating feed URL when only old feed exists."""
+        # Given: A feed exists with old URL
+        from app.feeds.models import Feed, Profile
+        from app.feeds.parser import _handle_feed_redirect
+
+        old_url = "https://old.example.com/social.org"
+        new_url = "https://new.example.com/social.org"
+
+        Feed.objects.create(url=old_url)
+        Profile.objects.create(
+            feed=old_url, nick="testuser", title="Test User", version="v1"
+        )
+
+        # When: Redirect is handled
+        _handle_feed_redirect(old_url, new_url)
+
+        # Then: Feed URL should be updated
+        self.assertFalse(Feed.objects.filter(url=old_url).exists())
+        self.assertTrue(Feed.objects.filter(url=new_url).exists())
+
+        # Then: Profile should point to new URL
+        profile = Profile.objects.get(feed=new_url)
+        self.assertEqual(profile.nick, "testuser")
+
+    def test_handle_redirect_merges_feeds_when_both_exist(self):
+        """Test merging feeds when both old and new URLs exist."""
+        # Given: Both old and new feeds exist
+        from app.feeds.models import Feed, Profile, Post
+        from app.feeds.parser import _handle_feed_redirect
+        from django.utils import timezone
+
+        old_url = "https://old.example.com/social.org"
+        new_url = "https://new.example.com/social.org"
+
+        # Create old feed and profile
+        Feed.objects.create(url=old_url)
+        old_profile = Profile.objects.create(
+            feed=old_url, nick="olduser", title="Old User", version="v1"
+        )
+        Post.objects.create(
+            profile=old_profile,
+            post_id="2025-01-15T10:00:00+0100",
+            content="Old post",
+            created_at=timezone.now(),
+        )
+
+        # Create new feed and profile
+        Feed.objects.create(url=new_url)
+        new_profile = Profile.objects.create(
+            feed=new_url, nick="newuser", title="New User", version="v2"
+        )
+
+        # When: Redirect is handled
+        _handle_feed_redirect(old_url, new_url)
+
+        # Then: Old feed should be deleted
+        self.assertFalse(Feed.objects.filter(url=old_url).exists())
+        self.assertTrue(Feed.objects.filter(url=new_url).exists())
+
+        # Then: Old profile should be deleted
+        self.assertFalse(Profile.objects.filter(feed=old_url).exists())
+
+        # Then: Post should be migrated to new profile
+        post = Post.objects.get(post_id="2025-01-15T10:00:00+0100")
+        self.assertEqual(post.profile, new_profile)
+
+    def test_handle_redirect_merges_mentions_without_duplicates(self):
+        """Test that mentions are merged correctly, avoiding UNIQUE constraint errors."""
+        # Given: Both old and new profiles exist with mentions
+        from app.feeds.models import Feed, Profile, Post, Mention
+        from app.feeds.parser import _handle_feed_redirect
+        from django.utils import timezone
+
+        old_url = "https://old.example.com/social.org"
+        new_url = "https://new.example.com/social.org"
+
+        # Create old feed and profile
+        Feed.objects.create(url=old_url)
+        old_profile = Profile.objects.create(
+            feed=old_url, nick="olduser", title="Old User", version="v1"
+        )
+
+        # Create new feed and profile
+        Feed.objects.create(url=new_url)
+        new_profile = Profile.objects.create(
+            feed=new_url, nick="newuser", title="New User", version="v2"
+        )
+
+        # Create a third profile that mentions both old and new profiles
+        third_profile = Profile.objects.create(
+            feed="https://third.example.com/social.org",
+            nick="third",
+            title="Third User",
+            version="v1",
+        )
+        post = Post.objects.create(
+            profile=third_profile,
+            post_id="2025-01-15T10:00:00+0100",
+            content="Mentioning both profiles",
+            created_at=timezone.now(),
+        )
+
+        # Create mentions: one to old_profile, one to new_profile
+        Mention.objects.create(post=post, mentioned_profile=old_profile, nickname="old")
+        Mention.objects.create(post=post, mentioned_profile=new_profile, nickname="new")
+
+        # When: Redirect is handled (this should NOT raise UNIQUE constraint error)
+        _handle_feed_redirect(old_url, new_url)
+
+        # Then: Old profile should be deleted
+        self.assertFalse(Profile.objects.filter(feed=old_url).exists())
+
+        # Then: Only one mention should remain (the duplicate was deleted)
+        mentions = Mention.objects.filter(post=post)
+        self.assertEqual(mentions.count(), 1)
+        self.assertEqual(mentions.first().mentioned_profile, new_profile)
