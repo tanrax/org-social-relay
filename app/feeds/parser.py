@@ -110,11 +110,34 @@ def _handle_feed_redirect(old_url: str, new_url: str):
                             follow.delete()
                             logger.debug("Deleted duplicate follow relationship")
 
-                    # Update all Mentions pointing to old_profile
-                    # Mentions don't have unique constraints, so bulk update is safe
-                    Mention.objects.filter(mentioned_profile=old_profile).update(
-                        mentioned_profile=new_profile
+                    # Migrate Mention relationships pointing to old_profile
+                    # Mentions have unique constraint (post, mentioned_profile)
+                    mentions_to_migrate = Mention.objects.filter(
+                        mentioned_profile=old_profile
                     )
+                    for mention in mentions_to_migrate:
+                        # Check if this mention already exists with new_profile
+                        existing = Mention.objects.filter(
+                            post=mention.post, mentioned_profile=new_profile
+                        ).first()
+
+                        if not existing:
+                            # Update to point to new_profile
+                            mention.mentioned_profile = new_profile
+                            try:
+                                mention.save()
+                                logger.debug(
+                                    f"Migrated mention in post {mention.post.post_id}"
+                                )
+                            except Exception as e:
+                                logger.warning(
+                                    f"Could not migrate mention, deleting: {e}"
+                                )
+                                mention.delete()
+                        else:
+                            # Mention already exists, delete duplicate
+                            mention.delete()
+                            logger.debug("Deleted duplicate mention")
 
                     # Migrate posts from old_profile to new_profile (avoid duplicates)
                     old_posts = Post.objects.filter(profile=old_profile)
