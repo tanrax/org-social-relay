@@ -114,11 +114,21 @@ The relay will automatically discover feeds from these nodes every 3 hours.
 
 ### Make your Org Social Relay public
 
-If you want your Relay to be discoverable by other users and added to the official public list, you must make a Pull Request to add your relay URL to:
+If you want your Relay to be discoverable by other relay nodes, you can make a Pull Request to add your relay URL to the `relay-list.txt` file in this repository:
 
-https://github.com/tanrax/org-social/blob/main/org-social-relay-list.txt
+https://github.com/tanrax/org-social-relay
 
-Add your Relay URL (e.g. `https://my-relay.example.com`) in a new line. Other relay administrators can then manually add your URL to their local `relay-list.txt` file.
+**Steps to add your relay:**
+
+1. Fork this repository
+2. Edit `relay-list.txt` and add your relay URL on a new line:
+   ```
+   https://your-relay.example.com
+   ```
+3. Create a Pull Request with your changes
+4. Once merged, all relay nodes that update their code (via `git pull`) will automatically discover your relay
+
+This way, the network of relays grows organically as new nodes are added to the shared list.
 
 ## Updating
 
