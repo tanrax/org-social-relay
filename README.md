@@ -6,9 +6,9 @@ Org Social Relay is a P2P system that acts as an intermediary between all [Org S
 
 ```mermaid
 graph TD
-    Node1["🖥️ Node 1<br/>(relay-list.txt)"]
-    Node2["🖥️ Node 2<br/>(relay-list.txt)"]
-    Node3["🖥️ Node 3<br/>(relay-list.txt)"]
+    Node1["🖥️ Relay 1"]
+    Node2["🖥️ Relay 2"]
+    Node3["🖥️ Relay 3"]
 
     %% Social.org instances with icons
     Social1_1["📄 social.org"]
@@ -50,8 +50,8 @@ graph TD
 
 ## Concepts
 
-- **Node**: A server running Org Social Relay (this software). Each node maintains a local `relay-list.txt` file with URLs of other relay nodes. Nodes scan the network and share feed information with each other, creating a decentralized P2P network.
-- **Client**: An application that connects to a Node to get information. It can be Org Social or any other application that implements the Org Social Relay API.
+- **Relay**: A server running Org Social Relay (this software). Each relay maintains a local `relay-list.txt` file with URLs of other relays. Relays scan the network and share feed information with each other, creating a decentralized P2P network.
+- **Client**: An application that connects to a Relay to get information. It can be Org Social or any other application that implements the Org Social Relay API.
 
 ## Installation
 
