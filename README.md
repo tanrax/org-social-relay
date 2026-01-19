@@ -6,10 +6,9 @@ Org Social Relay is a P2P system that acts as an intermediary between all [Org S
 
 ```mermaid
 graph TD
-    List["📋 List nodes"]
-    Node1["🖥️ Node 1"]
-    Node2["🖥️ Node 2"]
-    Node3["🖥️ Node 3"]
+    Node1["🖥️ Node 1<br/>(relay-list.txt)"]
+    Node2["🖥️ Node 2<br/>(relay-list.txt)"]
+    Node3["🖥️ Node 3<br/>(relay-list.txt)"]
 
     %% Social.org instances with icons
     Social1_1["📄 social.org"]
@@ -18,11 +17,6 @@ graph TD
     Social2_2["📄 social.org"]
     Social3_1["📄 social.org"]
     Social3_2["📄 social.org"]
-
-    %% Parent-child connections with labels
-    List -.->|"Get"| Node1
-    List -.->|"Get"| Node2
-    List -.->|"Get"| Node3
 
     %% Node to social.org connections
     Social1_1 -->|"⚓ Connects"| Node1
@@ -33,19 +27,17 @@ graph TD
     Social3_2 -->|"⚓ Connects"| Node3
 
     %% Bidirectional connections between nodes
-    Node1 <-.->|"👥 Share Users"| Node2
-    Node2 <-.->|"👥 Share Users"| Node3
-    Node1 <-.->|"👥 Share Users"| Node3
+    Node1 <-.->|"👥 Share Feeds"| Node2
+    Node2 <-.->|"👥 Share Feeds"| Node3
+    Node1 <-.->|"👥 Share Feeds"| Node3
 
     %% Modern color scheme with gradients
     classDef socialStyle fill:#667eea,stroke:#764ba2,stroke-width:3px,color:#fff,font-weight:bold
     classDef nodeStyle fill:#f093fb,stroke:#f5576c,stroke-width:3px,color:#fff,font-weight:bold
-    classDef listStyle fill:#4facfe,stroke:#00f2fe,stroke-width:4px,color:#fff,font-weight:bold
 
     %% Apply styles
     class Social1_1,Social1_2,Social2_1,Social2_2,Social3_1,Social3_2 socialStyle
     class Node1,Node2,Node3 nodeStyle
-    class List listStyle
 ```
 [Source](/diagram.mmd)
 
@@ -58,8 +50,7 @@ graph TD
 
 ## Concepts
 
-- **List nodes**: Index of public nodes. Simple list with all the URLs of the Nodes (stored locally in `relay-list.txt`). It will be used by nodes to find other nodes and share information.
-- **Node**: A server running Org Social Relay (this software). It scans the network and shares information with other nodes or clients.
+- **Node**: A server running Org Social Relay (this software). Each node maintains a local `relay-list.txt` file with URLs of other relay nodes. Nodes scan the network and share feed information with each other, creating a decentralized P2P network.
 - **Client**: An application that connects to a Node to get information. It can be Org Social or any other application that implements the Org Social Relay API.
 
 ## Installation
