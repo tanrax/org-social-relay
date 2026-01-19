@@ -6,9 +6,9 @@ Org Social Relay is a P2P system that acts as an intermediary between all [Org S
 
 ```mermaid
 graph TD
-    Node1["🖥️ Relay 1"]
-    Node2["🖥️ Relay 2"]
-    Node3["🖥️ Relay 3"]
+    Node1["🖥️ Relay"]
+    Node2["🖥️ Relay"]
+    Node3["🖥️ Relay"]
 
     %% Social.org instances with icons
     Social1_1["📄 social.org"]
@@ -106,8 +106,6 @@ The relay will automatically discover feeds from these nodes every 3 hours.
 ### Make your Org Social Relay public
 
 If you want your Relay to be discoverable by other relay nodes, you can make a Pull Request to add your relay URL to the `relay-list.txt` file in this repository:
-
-https://github.com/tanrax/org-social-relay
 
 **Steps to add your relay:**
 
