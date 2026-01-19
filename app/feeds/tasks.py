@@ -15,12 +15,13 @@ def discover_feeds_from_relay_nodes():
     Periodic task to discover new feeds from other Org Social Relay nodes.
 
     This task:
-    1. Fetches the list of relay nodes from the public URL
+    1. Reads the list of relay nodes from a local file
     2. Filters out our own domain to avoid self-discovery
     3. Calls each relay node's /feeds endpoint to get their registered feeds
     4. Stores newly discovered feeds in our local database
     """
     import django
+    from pathlib import Path
 
     django.setup()
 
@@ -28,168 +29,107 @@ def discover_feeds_from_relay_nodes():
     from .models import Feed
     from .parser import validate_org_social_feed
 
-    # URLs to fetch feeds from
-    feed_sources = [
-        {
-            "name": "relay nodes",
-            "url": "https://cdn.jsdelivr.net/gh/tanrax/org-social/org-social-relay-list.txt",
-            "type": "relay_nodes",
-        },
-        {
-            "name": "public register",
-            "url": "https://raw.githubusercontent.com/tanrax/org-social/main/registers.txt",
-            "type": "direct_feeds",
-        },
-    ]
+    # Get the project root directory (where manage.py is located)
+    project_root = Path(__file__).resolve().parent.parent.parent
+    relay_list_path = project_root / "relay-list.txt"
 
     total_discovered = 0
 
-    for source in feed_sources:
-        logger.info(f"Fetching feeds from {source['name']}: {source['url']}")
+    logger.info(f"Reading relay nodes from: {relay_list_path}")
 
-        try:
-            # Fetch the list
-            response = requests.get(source["url"], timeout=5)
-            response.raise_for_status()
+    try:
+        # Read the local file
+        with open(relay_list_path, "r", encoding="utf-8") as f:
+            content = f.read()
 
-            # The file might be empty or contain one URL per line
-            urls = [line.strip() for line in response.text.split("\n") if line.strip()]
+        # The file might be empty or contain one URL per line
+        relay_nodes = [line.strip() for line in content.split("\n") if line.strip()]
 
-            if source["type"] == "direct_feeds":
-                # For direct feeds (registers.txt), validate and add them directly
-                logger.info(f"Found {len(urls)} direct feeds to validate")
+        # Filter out our own domain to avoid self-discovery
+        site_domain = settings.SITE_DOMAIN
+        filtered_nodes = []
+        for node_url in relay_nodes:
+            # Normalize the URL for comparison
+            normalized_node = (
+                node_url.replace("http://", "").replace("https://", "").strip("/")
+            )
+            normalized_site = site_domain.strip("/")
 
-                for feed_url in urls:
-                    if not feed_url.strip():
-                        continue
+            if normalized_node != normalized_site:
+                filtered_nodes.append(node_url)
+            else:
+                logger.info(f"Skipping own domain: {node_url}")
 
-                    feed_url = feed_url.strip()
+        relay_nodes = filtered_nodes
 
-                    # Check if we already have this feed
-                    if Feed.objects.filter(url=feed_url).exists():
-                        continue
+        if not relay_nodes:
+            logger.info("No relay nodes found in the list after filtering own domain")
+            return
 
-                    # Validate the feed before adding it
-                    logger.info(f"Validating direct feed: {feed_url}")
-                    is_valid, error_message = validate_org_social_feed(feed_url)
+        logger.info(
+            f"Found {len(relay_nodes)} relay nodes to check (excluding own domain)"
+        )
 
-                    if not is_valid:
-                        logger.warning(
-                            f"Skipping invalid direct feed {feed_url}: {error_message}"
-                        )
-                        continue
+        for node_url in relay_nodes:
+            try:
+                # Ensure the URL has proper format
+                if not node_url.startswith(("http://", "https://")):
+                    node_url = f"http://{node_url}"
 
-                    # Create the feed
-                    try:
-                        Feed.objects.create(url=feed_url)
-                        total_discovered += 1
-                        logger.info(f"Added direct feed: {feed_url}")
-                    except Exception as e:
-                        logger.error(f"Failed to create direct feed {feed_url}: {e}")
+                # Call the /feeds endpoint on each relay node
+                feeds_url = f"{node_url}/feeds"
+                feeds_response = requests.get(feeds_url, timeout=10)
+                feeds_response.raise_for_status()
 
-            elif source["type"] == "relay_nodes":
-                # For relay nodes, get their feeds endpoints
-                relay_nodes = urls
+                feeds_data = feeds_response.json()
 
-                # Filter out our own domain to avoid self-discovery
-                site_domain = settings.SITE_DOMAIN
-                filtered_nodes = []
-                for node_url in relay_nodes:
-                    # Normalize the URL for comparison
-                    normalized_node = (
-                        node_url.replace("http://", "")
-                        .replace("https://", "")
-                        .strip("/")
-                    )
-                    normalized_site = site_domain.strip("/")
+                # Check if response has expected format
+                if feeds_data.get("type") == "Success" and "data" in feeds_data:
+                    feeds_list = feeds_data["data"]
 
-                    if normalized_node != normalized_site:
-                        filtered_nodes.append(node_url)
-                    else:
-                        logger.info(f"Skipping own domain: {node_url}")
+                    for feed_url in feeds_list:
+                        if isinstance(feed_url, str) and feed_url.strip():
+                            feed_url = feed_url.strip()
 
-                relay_nodes = filtered_nodes
+                            # Check if we already have this feed
+                            if Feed.objects.filter(url=feed_url).exists():
+                                continue
 
-                if not relay_nodes:
-                    logger.info(
-                        "No relay nodes found in the list after filtering own domain"
-                    )
-                    continue
+                            # Validate the feed before adding it
+                            logger.info(f"Validating discovered feed: {feed_url}")
+                            is_valid, error_message = validate_org_social_feed(feed_url)
 
-                logger.info(
-                    f"Found {len(relay_nodes)} relay nodes to check (excluding own domain)"
-                )
+                            if not is_valid:
+                                logger.warning(
+                                    f"Skipping invalid feed {feed_url}: {error_message}"
+                                )
+                                continue
 
-                for node_url in relay_nodes:
-                    try:
-                        # Ensure the URL has proper format
-                        if not node_url.startswith(("http://", "https://")):
-                            node_url = f"http://{node_url}"
+                            # Create the feed
+                            try:
+                                Feed.objects.create(url=feed_url)
+                                total_discovered += 1
+                                logger.info(
+                                    f"Discovered and validated new feed: {feed_url}"
+                                )
+                            except Exception as e:
+                                logger.error(f"Failed to create feed {feed_url}: {e}")
 
-                        # Call the /feeds endpoint on each relay node
-                        feeds_url = f"{node_url}/feeds"
-                        feeds_response = requests.get(feeds_url, timeout=10)
-                        feeds_response.raise_for_status()
+                logger.info(f"Successfully checked relay node: {node_url}")
 
-                        feeds_data = feeds_response.json()
+            except requests.RequestException as e:
+                logger.warning(f"Failed to fetch feeds from relay node {node_url}: {e}")
+            except ValueError as e:
+                logger.warning(f"Invalid JSON response from relay node {node_url}: {e}")
+            except Exception as e:
+                logger.error(f"Unexpected error checking relay node {node_url}: {e}")
 
-                        # Check if response has expected format
-                        if feeds_data.get("type") == "Success" and "data" in feeds_data:
-                            feeds_list = feeds_data["data"]
-
-                            for feed_url in feeds_list:
-                                if isinstance(feed_url, str) and feed_url.strip():
-                                    feed_url = feed_url.strip()
-
-                                    # Check if we already have this feed
-                                    if Feed.objects.filter(url=feed_url).exists():
-                                        continue
-
-                                    # Validate the feed before adding it
-                                    logger.info(
-                                        f"Validating discovered feed: {feed_url}"
-                                    )
-                                    is_valid, error_message = validate_org_social_feed(
-                                        feed_url
-                                    )
-
-                                    if not is_valid:
-                                        logger.warning(
-                                            f"Skipping invalid feed {feed_url}: {error_message}"
-                                        )
-                                        continue
-
-                                    # Create the feed
-                                    try:
-                                        Feed.objects.create(url=feed_url)
-                                        total_discovered += 1
-                                        logger.info(
-                                            f"Discovered and validated new feed: {feed_url}"
-                                        )
-                                    except Exception as e:
-                                        logger.error(
-                                            f"Failed to create feed {feed_url}: {e}"
-                                        )
-
-                        logger.info(f"Successfully checked relay node: {node_url}")
-
-                    except requests.RequestException as e:
-                        logger.warning(
-                            f"Failed to fetch feeds from relay node {node_url}: {e}"
-                        )
-                    except ValueError as e:
-                        logger.warning(
-                            f"Invalid JSON response from relay node {node_url}: {e}"
-                        )
-                    except Exception as e:
-                        logger.error(
-                            f"Unexpected error checking relay node {node_url}: {e}"
-                        )
-
-        except requests.RequestException as e:
-            logger.error(f"Failed to fetch {source['name']} from {source['url']}: {e}")
-        except Exception as e:
-            logger.error(f"Unexpected error processing {source['name']}: {e}")
+    except FileNotFoundError as e:
+        logger.error(f"Relay list file not found: {relay_list_path}: {e}")
+    except IOError as e:
+        logger.error(f"Failed to read relay list from {relay_list_path}: {e}")
+    except Exception as e:
+        logger.error(f"Unexpected error processing relay list: {e}")
 
     logger.info(
         f"Feed discovery completed. Total new feeds discovered: {total_discovered}"

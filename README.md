@@ -58,7 +58,7 @@ graph TD
 
 ## Concepts
 
-- **List nodes**: Index of public nodes. Simple list with all the URLs of the Nodes (`https://cdn.jsdelivr.net/gh/tanrax/org-social/org-social-relay-list.txt`). It will be used by nodes to find other nodes and share information.
+- **List nodes**: Index of public nodes. Simple list with all the URLs of the Nodes (stored locally in `relay-list.txt`). It will be used by nodes to find other nodes and share information.
 - **Node**: A server running Org Social Relay (this software). It scans the network and shares information with other nodes or clients.
 - **Client**: An application that connects to a Node to get information. It can be Org Social or any other application that implements the Org Social Relay API.
 
@@ -93,13 +93,32 @@ nano .env
 docker compose up -d
 ```
 
-## Make your Org Social Relay public
+## Managing Relay Nodes
 
-If you want your Relay to be used by other users, and also communicate with other public Relays to work together scanning the network and improving everyone's speed, you must make a Pull Request to this file:
+### Local Relay List
+
+This relay uses a local file (`relay-list.txt` in the project root) to manage the list of other relay nodes it connects to.
+
+To add or remove relay nodes from your local instance:
+
+```bash
+# Edit the relay list file
+nano relay-list.txt
+
+# Add one relay URL per line, for example:
+# https://relay.org-social.org
+# https://other-relay.example.com
+```
+
+The relay will automatically discover feeds from these nodes every 3 hours.
+
+### Make your Org Social Relay public
+
+If you want your Relay to be discoverable by other users and added to the official public list, you must make a Pull Request to add your relay URL to:
 
 https://github.com/tanrax/org-social/blob/main/org-social-relay-list.txt
 
-Add your Relay URL (e.g. `https://my-relay.example.com`) in a new line.
+Add your Relay URL (e.g. `https://my-relay.example.com`) in a new line. Other relay administrators can then manually add your URL to their local `relay-list.txt` file.
 
 ## Updating
 
@@ -1028,7 +1047,7 @@ This RSS feed can be used in RSS readers to stay updated with new posts from the
 
 ## Technical information
 
-You can find the public Relay list in `https://cdn.jsdelivr.net/gh/tanrax/org-social/org-social-relay-list.txt`.
+The relay list is stored locally in `relay-list.txt`.
 
 ### Crons
 
