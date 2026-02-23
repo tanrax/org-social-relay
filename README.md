@@ -1067,3 +1067,7 @@ Every day at midnight, Relay analyzes the feeds of all registered users to disco
 #### Cleanup stale feeds
 
 Every 3 days at 2 AM, Relay automatically removes feeds that haven't been successfully fetched (HTTP 200) in the last 3 days. This keeps the relay efficient by removing inactive or dead feeds.
+
+## Contributing
+
+Contributions are welcome! Please see the [contribution guidelines](https://git.andros.dev/andros/contribute) for instructions on how to submit issues or pull requests.
