@@ -11,7 +11,6 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
-import socket
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -152,23 +151,12 @@ REST_FRAMEWORK = {
 }
 
 # Cache configuration
+# In DEBUG (dev/test) we use DummyCache so the suite runs without Redis.
+# In production we always use Redis: a startup probe is unsafe because if Redis
+# is still warming up at import time the process would silently fall back to
+# DummyCache for its entire lifetime, breaking cache invalidation.
 
-
-def redis_available():
-    """Check if Redis is available"""
-    try:
-        redis_host = os.environ.get("REDIS_HOST", "redis")
-        redis_port = int(os.environ.get("REDIS_PORT", 6379))
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(1)
-        result = sock.connect_ex((redis_host, redis_port))
-        sock.close()
-        return result == 0
-    except Exception:
-        return False
-
-
-if DEBUG or not redis_available():
+if DEBUG:
     CACHES = {
         "default": {
             "BACKEND": "django.core.cache.backends.dummy.DummyCache",
