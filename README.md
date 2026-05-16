@@ -218,6 +218,7 @@ curl http://localhost:8080/
         "group-messages": {"href": "/groups/{group_slug}/", "method": "GET", "templated": true},
         "polls": {"href": "/polls/", "method": "GET"},
         "poll-votes": {"href": "/polls/votes/?post={post_url}", "method": "GET", "templated": true},
+        "profile": {"href": "/profile/?feed={feed_url}", "method": "GET", "templated": true},
         "rss": {"href": "/rss.xml", "method": "GET", "description": "RSS feed of latest posts (supports ?tag={tag} and ?feed={feed_url} filters)"}
     }
 }
@@ -927,6 +928,48 @@ curl http://localhost:8080/polls/
     }
 }
 ```
+
+### Get profile
+
+`/profile/?feed={url feed}` - Get profile information for a given feed, including the list of feeds that follow it (followers).
+
+```sh
+# URL must be encoded when passed as query parameter
+curl "http://localhost:8080/profile/?feed=https%3A%2F%2Fexample.com%2Fsocial.org"
+
+# Or use curl's --data-urlencode for automatic encoding:
+curl -G "http://localhost:8080/profile/" --data-urlencode "feed=https://example.com/social.org"
+```
+
+```json
+{
+    "type": "Success",
+    "errors": [],
+    "data": {
+        "feed": "https://example.com/social.org",
+        "followers": [
+            "https://alice.org/social.org",
+            "https://bob.org/social.org",
+            "https://charlie.org/social.org"
+        ]
+    },
+    "meta": {
+        "feed": "https://example.com/social.org",
+        "total_followers": 3
+    },
+    "_links": {
+        "self": {"href": "/profile/?feed=https%3A%2F%2Fexample.com%2Fsocial.org", "method": "GET"}
+    }
+}
+```
+
+The response includes:
+- `feed`: The queried feed URL
+- `followers`: List of feed URLs that follow this feed (i.e. feeds that have included this feed in their following list)
+
+**Error handling:**
+- Returns 400 if the `feed` parameter is missing or invalid
+- Returns 404 if the feed is not registered in the relay
 
 ### Get poll votes
 

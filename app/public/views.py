@@ -82,6 +82,11 @@ def root_view(request):
                     "method": "GET",
                     "templated": True,
                 },
+                "profile": {
+                    "href": "/profile/?feed={feed_url}",
+                    "method": "GET",
+                    "templated": True,
+                },
                 "rss": {
                     "href": "/rss.xml",
                     "method": "GET",
