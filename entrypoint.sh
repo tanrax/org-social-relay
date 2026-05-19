@@ -11,6 +11,6 @@ python manage.py migrate
 echo "🔍 Checking Django configuration..."
 python manage.py check
 
-# Start Django development server
-echo "🎯 Starting Django development server on 0.0.0.0:8000..."
-exec python manage.py runserver 0.0.0.0:8000
+# Start application server
+echo "🎯 Starting uvicorn on 0.0.0.0:8000..."
+exec uvicorn core.asgi:application --host 0.0.0.0 --port 8000 --workers 4
