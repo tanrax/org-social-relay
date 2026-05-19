@@ -1,5 +1,6 @@
 import json
 import pytest
+import redis
 from unittest.mock import patch, MagicMock
 from django.test import TestCase, Client
 from app.feeds.notification_publisher import publish_notification
@@ -12,20 +13,23 @@ class TestSSENotificationsEndpoint(TestCase):
         self.client = Client()
         self.feed_url = "https://example.com/social.org"
 
-    def test_sse_endpoint_requires_feed_parameter(self):
-        """Test that SSE endpoint requires feed parameter"""
-        response = self.client.get("/sse/notifications/")
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response["Content-Type"], "text/event-stream")
+    def test_sse_endpoint_without_feed_returns_global_stream(self):
+        """Test that SSE endpoint without feed parameter returns global stream"""
+        with patch("app.sse_notifications.views.redis.Redis") as mock_redis:
+            mock_pubsub = MagicMock()
+            mock_pubsub.get_message.side_effect = redis.RedisError("done")
+            mock_redis.return_value.pubsub.return_value = mock_pubsub
+
+            response = self.client.get("/sse/notifications/")
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response["Content-Type"], "text/event-stream")
 
     def test_sse_endpoint_accepts_valid_feed(self):
         """Test that SSE endpoint accepts valid feed parameter"""
         with patch("app.sse_notifications.views.redis.Redis") as mock_redis:
-            # Mock Redis pubsub
             mock_pubsub = MagicMock()
-            mock_pubsub.listen.return_value = iter(
-                [{"type": "subscribe", "channel": f"notifications:{self.feed_url}"}]
-            )
+            mock_pubsub.get_message.side_effect = redis.RedisError("done")
             mock_redis.return_value.pubsub.return_value = mock_pubsub
 
             response = self.client.get("/sse/notifications/", {"feed": self.feed_url})
@@ -36,53 +40,107 @@ class TestSSENotificationsEndpoint(TestCase):
             self.assertEqual(response["X-Accel-Buffering"], "no")
             self.assertEqual(response["Access-Control-Allow-Origin"], "*")
 
-    def test_sse_sends_connection_event(self):
-        """Test that SSE sends initial connection event"""
+    def test_sse_sends_connection_event_with_feed(self):
+        """Test that per-feed SSE sends initial connection event with feed field"""
         with patch("app.sse_notifications.views.redis.Redis") as mock_redis:
-            # Mock Redis pubsub
             mock_pubsub = MagicMock()
-            mock_pubsub.listen.return_value = iter([{"type": "subscribe"}])
+            mock_pubsub.get_message.side_effect = redis.RedisError("done")
             mock_redis.return_value.pubsub.return_value = mock_pubsub
 
             response = self.client.get("/sse/notifications/", {"feed": self.feed_url})
-
-            # Get the streaming content
             content = b"".join(response.streaming_content).decode("utf-8")
 
-            # Check for connection event
             self.assertIn("event: connected", content)
             self.assertIn(f'"feed": "{self.feed_url}"', content)
             self.assertIn('"status": "connected"', content)
 
+    def test_sse_sends_connection_event_global(self):
+        """Test that global SSE sends initial connection event without feed field"""
+        with patch("app.sse_notifications.views.redis.Redis") as mock_redis:
+            mock_pubsub = MagicMock()
+            mock_pubsub.get_message.side_effect = redis.RedisError("done")
+            mock_redis.return_value.pubsub.return_value = mock_pubsub
+
+            response = self.client.get("/sse/notifications/")
+            content = b"".join(response.streaming_content).decode("utf-8")
+
+            self.assertIn("event: connected", content)
+            self.assertIn('"status": "connected"', content)
+            self.assertNotIn('"feed":', content)
+
     def test_sse_receives_notification_from_redis(self):
-        """Test that SSE receives and forwards notifications from Redis"""
+        """Test that per-feed SSE receives and forwards notifications from Redis"""
         notification_data = {
             "type": "mention",
             "post": "https://alice.com/social.org#2024-01-01T10:00:00+0000",
         }
 
         with patch("app.sse_notifications.views.redis.Redis") as mock_redis:
-            # Mock Redis pubsub
             mock_pubsub = MagicMock()
-            mock_pubsub.listen.return_value = iter(
-                [
-                    {"type": "subscribe"},
-                    {"type": "message", "data": json.dumps(notification_data)},
-                ]
-            )
+            mock_pubsub.get_message.side_effect = [
+                {"type": "message", "data": json.dumps(notification_data)},
+                redis.RedisError("done"),
+            ]
             mock_redis.return_value.pubsub.return_value = mock_pubsub
 
             response = self.client.get("/sse/notifications/", {"feed": self.feed_url})
-
-            # Get the streaming content
             content = b"".join(response.streaming_content).decode("utf-8")
 
-            # Check for notification event
             self.assertIn("event: notification", content)
             self.assertIn('"type": "mention"', content)
-            self.assertIn(
-                "https://alice.com/social.org#2024-01-01T10:00:00+0000", content
-            )
+            self.assertIn("https://alice.com/social.org#2024-01-01T10:00:00+0000", content)
+
+    def test_global_sse_adds_target_feed_to_notifications(self):
+        """Test that global SSE adds target_feed field extracted from channel name"""
+        notification_data = {
+            "type": "mention",
+            "post": "https://alice.com/social.org#2024-01-01T10:00:00+0000",
+        }
+        target_feed = "https://example.com/social.org"
+
+        with patch("app.sse_notifications.views.redis.Redis") as mock_redis:
+            mock_pubsub = MagicMock()
+            mock_pubsub.get_message.side_effect = [
+                {
+                    "type": "pmessage",
+                    "pattern": "notifications:*",
+                    "channel": f"notifications:{target_feed}",
+                    "data": json.dumps(notification_data),
+                },
+                redis.RedisError("done"),
+            ]
+            mock_redis.return_value.pubsub.return_value = mock_pubsub
+
+            response = self.client.get("/sse/notifications/")
+            content = b"".join(response.streaming_content).decode("utf-8")
+
+            self.assertIn("event: notification", content)
+            self.assertIn(f'"target_feed": "{target_feed}"', content)
+            self.assertIn('"type": "mention"', content)
+
+    def test_global_sse_uses_psubscribe(self):
+        """Test that global SSE subscribes with psubscribe to all notification channels"""
+        with patch("app.sse_notifications.views.redis.Redis") as mock_redis:
+            mock_pubsub = MagicMock()
+            mock_pubsub.get_message.side_effect = redis.RedisError("done")
+            mock_redis.return_value.pubsub.return_value = mock_pubsub
+
+            response = self.client.get("/sse/notifications/")
+            b"".join(response.streaming_content)
+
+            mock_pubsub.psubscribe.assert_called_once_with("notifications:*")
+
+    def test_per_feed_sse_uses_subscribe(self):
+        """Test that per-feed SSE subscribes with subscribe to the specific channel"""
+        with patch("app.sse_notifications.views.redis.Redis") as mock_redis:
+            mock_pubsub = MagicMock()
+            mock_pubsub.get_message.side_effect = redis.RedisError("done")
+            mock_redis.return_value.pubsub.return_value = mock_pubsub
+
+            response = self.client.get("/sse/notifications/", {"feed": self.feed_url})
+            b"".join(response.streaming_content)
+
+            mock_pubsub.subscribe.assert_called_once_with(f"notifications:{self.feed_url}")
 
 
 class TestNotificationPublisher(TestCase):
@@ -104,7 +162,6 @@ class TestNotificationPublisher(TestCase):
         self.assertTrue(result)
         mock_redis_instance.publish.assert_called_once()
 
-        # Check the published data
         call_args = mock_redis_instance.publish.call_args
         channel, data = call_args[0]
 
@@ -134,7 +191,6 @@ class TestNotificationPublisher(TestCase):
 
         self.assertTrue(result)
 
-        # Check the published data
         call_args = mock_redis_instance.publish.call_args
         channel, data = call_args[0]
 
@@ -220,7 +276,6 @@ class TestSSENotificationStructure:
             "post": "https://alice.com/social.org#2024-01-01T10:00:00+0000",
         }
 
-        # Verify structure
         assert "type" in notification
         assert "post" in notification
         assert notification["type"] == "mention"
@@ -260,3 +315,14 @@ class TestSSENotificationStructure:
 
         assert notification["type"] == "boost"
         assert "boosted" in notification
+
+    def test_global_notification_includes_target_feed(self):
+        """Test that global notifications include target_feed field"""
+        notification = {
+            "target_feed": "https://example.com/social.org",
+            "type": "mention",
+            "post": "https://alice.com/social.org#2024-01-01T10:00:00+0000",
+        }
+
+        assert "target_feed" in notification
+        assert notification["target_feed"].startswith("http")

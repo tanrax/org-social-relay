@@ -40,6 +40,10 @@ def root_view(request):
                     "method": "GET",
                     "templated": True,
                 },
+                "sse-notifications-all": {
+                    "href": "/sse/notifications/",
+                    "method": "GET",
+                },
                 "reactions": {
                     "href": "/reactions/?feed={feed_url}",
                     "method": "GET",

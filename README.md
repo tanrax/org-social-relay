@@ -207,6 +207,7 @@ curl http://localhost:8080/
         "feed-content": {"href": "/feed-content/?feed={feed_url}", "method": "GET", "templated": true},
         "notifications": {"href": "/notifications/?feed={feed_url}", "method": "GET", "templated": true},
         "sse-notifications": {"href": "/sse/notifications/?feed={feed_url}", "method": "GET", "templated": true},
+        "sse-notifications-all": {"href": "/sse/notifications/", "method": "GET"},
         "mentions": {"href": "/mentions/?feed={feed_url}", "method": "GET", "templated": true},
         "reactions": {"href": "/reactions/?feed={feed_url}", "method": "GET", "templated": true},
         "replies-to": {"href": "/replies-to/?feed={feed_url}", "method": "GET", "templated": true},
@@ -352,10 +353,17 @@ The `by_type` breakdown in `meta` allows you to show notification counts per typ
 
 ### Real-time notifications (SSE)
 
-`/sse/notifications/?feed={url feed}` - Subscribe to real-time notifications via Server-Sent Events.
+`/sse/notifications/` - Subscribe to real-time notifications via Server-Sent Events. The `?feed=` parameter is optional:
+
+- **With `?feed=`**: streams only notifications for that feed.
+- **Without `?feed=`**: streams all notifications from all feeds (intended for backends such as push notification services).
 
 ```sh
+# Per-feed stream
 curl -N "http://localhost:8080/sse/notifications/?feed=https://example.com/social.org"
+
+# Global stream (all feeds)
+curl -N "http://localhost:8080/sse/notifications/"
 ```
 
 **Events:**
@@ -365,6 +373,11 @@ curl -N "http://localhost:8080/sse/notifications/?feed=https://example.com/socia
   event: connected
   data: {"feed": "https://example.com/social.org", "status": "connected"}
   ```
+  In the global stream the `feed` field is omitted:
+  ```
+  event: connected
+  data: {"status": "connected"}
+  ```
 
 - `heartbeat` - Connection keepalive (every 30s)
   ```
@@ -372,7 +385,7 @@ curl -N "http://localhost:8080/sse/notifications/?feed=https://example.com/socia
   data: {"status": "alive", "timestamp": 1733392800}
   ```
 
-- `notification` - New notification received (same structure as `/notifications/`)
+- `notification` - New notification received (per-feed, same structure as `/notifications/`)
   ```
   event: notification
   data: {"type": "mention", "post": "https://alice.org/social.org#2025-02-05T11:20:00+0100"}
@@ -388,6 +401,12 @@ curl -N "http://localhost:8080/sse/notifications/?feed=https://example.com/socia
   ```
   event: notification
   data: {"type": "boost", "post": "https://dave.org/social.org#...", "boosted": "https://example.com/social.org#..."}
+  ```
+
+  In the global stream, each notification includes a `target_feed` field identifying which feed received it:
+  ```
+  event: notification
+  data: {"target_feed": "https://example.com/social.org", "type": "mention", "post": "https://alice.org/social.org#2025-02-05T11:20:00+0100"}
   ```
 
 ### Get mentions

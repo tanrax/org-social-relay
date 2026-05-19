@@ -8,129 +8,121 @@ import redis
 
 logger = logging.getLogger(__name__)
 
+HEARTBEAT_INTERVAL = 30
+
+
+def _sse_headers(response):
+    response["Cache-Control"] = "no-cache"
+    response["X-Accel-Buffering"] = "no"
+    response["Access-Control-Allow-Origin"] = "*"
+    response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+    response["Access-Control-Allow-Headers"] = "Content-Type"
+    return response
+
+
+def _get_redis_pubsub():
+    redis_host = settings.HUEY["connection"]["host"]
+    redis_port = settings.HUEY["connection"]["port"]
+    redis_db = settings.HUEY["connection"]["db"]
+    r = redis.Redis(host=redis_host, port=redis_port, db=redis_db, decode_responses=True)
+    return r.pubsub()
+
 
 class SSENotificationsView(View):
     """
-    Server-Sent Events (SSE) endpoint for real-time notifications.
+    Server-Sent Events endpoint for real-time notifications.
 
-    Clients connect to this endpoint with a feed URL parameter and receive
-    real-time notifications as they are published by the scan_feeds task.
-
-    Usage:
-        GET /sse/notifications/?feed=https://example.com/social.org
-
-    Response format (Server-Sent Events):
-        event: notification
-        data: {"type": "mention", "post": "...", ...}
-
-        event: heartbeat
-        data: {"status": "alive"}
+    With ?feed=: streams notifications for a single feed.
+    Without ?feed=: streams all notifications from all feeds, adding target_feed to each event.
     """
 
     def get(self, request):
         feed_url = request.GET.get("feed", "").strip()
 
-        if not feed_url:
-            return StreamingHttpResponse(
-                "data: "
-                + json.dumps({"error": "Feed URL parameter is required"})
-                + "\n\n",
-                content_type="text/event-stream",
-                status=400,
-            )
+        stream = self._feed_stream(feed_url) if feed_url else self._global_stream()
+        return _sse_headers(StreamingHttpResponse(stream, content_type="text/event-stream"))
 
-        logger.info(f"SSE connection established for feed: {feed_url}")
+    def _feed_stream(self, feed_url):
+        logger.info(f"SSE per-feed connection: {feed_url}")
+        try:
+            pubsub = _get_redis_pubsub()
+            pubsub.subscribe(f"notifications:{feed_url}")
 
-        def event_stream():
-            """Generator that yields SSE-formatted events"""
+            yield "event: connected\n"
+            yield f"data: {json.dumps({'feed': feed_url, 'status': 'connected'})}\n\n"
+
+            yield from self._message_loop(pubsub, feed_url=feed_url)
+
+        except redis.RedisError as e:
+            logger.error(f"Redis error for {feed_url}: {e}")
+            yield "event: error\n"
+            yield f"data: {json.dumps({'error': 'Redis connection failed'})}\n\n"
+        except Exception as e:
+            logger.error(f"Unexpected error in SSE stream for {feed_url}: {e}")
+            yield "event: error\n"
+            yield f"data: {json.dumps({'error': 'Internal server error'})}\n\n"
+        finally:
             try:
-                # Connect to Redis
-                redis_host = settings.HUEY["connection"]["host"]
-                redis_port = settings.HUEY["connection"]["port"]
-                redis_db = settings.HUEY["connection"]["db"]
+                pubsub.close()
+            except Exception:
+                pass
 
-                r = redis.Redis(
-                    host=redis_host, port=redis_port, db=redis_db, decode_responses=True
-                )
+    def _global_stream(self):
+        logger.info("SSE global connection established")
+        try:
+            pubsub = _get_redis_pubsub()
+            pubsub.psubscribe("notifications:*")
 
-                # Subscribe to the feed's notification channel
-                pubsub = r.pubsub()
-                channel_name = f"notifications:{feed_url}"
-                pubsub.subscribe(channel_name)
+            yield "event: connected\n"
+            yield f"data: {json.dumps({'status': 'connected'})}\n\n"
 
-                logger.info(f"Subscribed to Redis channel: {channel_name}")
+            yield from self._message_loop(pubsub, global_mode=True)
 
-                # Send initial connection message
-                yield "event: connected\n"
-                yield f"data: {json.dumps({'feed': feed_url, 'status': 'connected'})}\n\n"
+        except redis.RedisError as e:
+            logger.error(f"Redis error in global SSE stream: {e}")
+            yield "event: error\n"
+            yield f"data: {json.dumps({'error': 'Redis connection failed'})}\n\n"
+        except Exception as e:
+            logger.error(f"Unexpected error in global SSE stream: {e}")
+            yield "event: error\n"
+            yield f"data: {json.dumps({'error': 'Internal server error'})}\n\n"
+        finally:
+            try:
+                pubsub.close()
+            except Exception:
+                pass
 
-                # Keep track of last heartbeat
-                last_heartbeat = time.time()
-                heartbeat_interval = 30  # seconds
+    def _message_loop(self, pubsub, feed_url=None, global_mode=False):
+        last_heartbeat = time.time()
 
-                # Use a while loop with get_message(timeout=1) instead of listen()
-                # This allows heartbeats to be sent even when there are no messages
-                while True:
-                    # Send heartbeat every 30 seconds to keep connection alive
-                    current_time = time.time()
-                    if current_time - last_heartbeat >= heartbeat_interval:
-                        yield "event: heartbeat\n"
-                        yield f"data: {json.dumps({'status': 'alive', 'timestamp': int(current_time)})}\n\n"
-                        last_heartbeat = current_time
+        while True:
+            current_time = time.time()
+            if current_time - last_heartbeat >= HEARTBEAT_INTERVAL:
+                yield "event: heartbeat\n"
+                yield f"data: {json.dumps({'status': 'alive', 'timestamp': int(current_time)})}\n\n"
+                last_heartbeat = current_time
 
-                    # Check for messages with 1 second timeout
-                    # This prevents blocking and allows heartbeat to run regularly
-                    message = pubsub.get_message(timeout=1)
+            message = pubsub.get_message(timeout=1)
+            if message is None:
+                continue
 
-                    if message is None:
-                        # No message received, continue to next iteration (will check heartbeat)
-                        continue
+            msg_type = message["type"]
+            is_data = (msg_type == "message") or (global_mode and msg_type == "pmessage")
+            if not is_data:
+                continue
 
-                    # Process Redis messages
-                    if message["type"] == "message":
-                        try:
-                            # Message data is already a JSON string from Redis
-                            notification_data = json.loads(message["data"])
+            try:
+                notification_data = json.loads(message["data"])
 
-                            # Send notification event
-                            yield "event: notification\n"
-                            yield f"data: {json.dumps(notification_data)}\n\n"
+                if global_mode:
+                    channel = message["channel"]
+                    target_feed = channel.removeprefix("notifications:")
+                    notification_data["target_feed"] = target_feed
 
-                            logger.debug(
-                                f"Sent notification to {feed_url}: {notification_data['type']}"
-                            )
+                yield "event: notification\n"
+                yield f"data: {json.dumps(notification_data)}\n\n"
 
-                        except json.JSONDecodeError as e:
-                            logger.error(f"Failed to decode notification message: {e}")
-                        except Exception as e:
-                            logger.error(f"Error processing notification: {e}")
-
-            except redis.RedisError as e:
-                logger.error(f"Redis connection error for {feed_url}: {e}")
-                yield "event: error\n"
-                yield f"data: {json.dumps({'error': 'Redis connection failed'})}\n\n"
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to decode notification message: {e}")
             except Exception as e:
-                logger.error(f"Unexpected error in SSE stream for {feed_url}: {e}")
-                yield "event: error\n"
-                yield f"data: {json.dumps({'error': 'Internal server error'})}\n\n"
-            finally:
-                try:
-                    pubsub.close()
-                    logger.info(f"SSE connection closed for feed: {feed_url}")
-                except Exception:
-                    pass
-
-        response = StreamingHttpResponse(
-            event_stream(), content_type="text/event-stream"
-        )
-
-        # SSE headers
-        response["Cache-Control"] = "no-cache"
-        response["X-Accel-Buffering"] = "no"  # Disable nginx buffering
-
-        # CORS headers for cross-origin requests
-        response["Access-Control-Allow-Origin"] = "*"
-        response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
-        response["Access-Control-Allow-Headers"] = "Content-Type"
-
-        return response
+                logger.error(f"Error processing notification: {e}")
