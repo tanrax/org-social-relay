@@ -1,5 +1,8 @@
+from unittest.mock import Mock, patch
+
 from django.test import TestCase
 from app.feeds.models import Feed, Profile, Post
+from app.feeds.tasks import scan_feeds
 
 
 class PostDeletionDetectionTest(TestCase):
@@ -166,3 +169,49 @@ class PostDeletionDetectionTest(TestCase):
 
         # Then: Only 2 posts should remain
         self.assertEqual(Post.objects.filter(profile=self.profile).count(), 2)
+
+
+class ScanFeedsRobustnessTest(TestCase):
+    """End-to-end robustness tests for the scan_feeds task."""
+
+    @patch("app.feeds.parser.requests.get")
+    def test_invalid_birthday_does_not_abort_scan(self, mock_get):
+        """A feed with a malformed birthday must still be scanned (regression).
+
+        Previously a value like "2003/06/17" reached the Profile.birthday
+        DateField and raised a ValidationError, aborting the whole feed scan on
+        every run. The birthday must now be dropped while posts are still saved.
+        """
+        # Given: A feed whose birthday is not in YYYY-MM-DD format
+        feed_url = "https://host.example.org/ali/social.org"
+        Feed.objects.create(url=feed_url)
+
+        content = (
+            "#+TITLE: Ali\n"
+            "#+NICK: ali\n"
+            "#+BIRTHDAY: 2003/06/17\n"
+            "\n"
+            "* Posts\n"
+            "** 2025-01-01T10:00:00+0100\n"
+            ":PROPERTIES:\n"
+            ":END:\n"
+            "\n"
+            "Hello world\n"
+        )
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.content = content.encode("utf-8")
+        mock_response.url = feed_url  # No redirect
+        mock_response.history = []
+        mock_response.raise_for_status = Mock()
+        mock_get.return_value = mock_response
+
+        # When: We scan all feeds
+        scan_feeds.call_local()
+
+        # Then: The profile is created with the bad birthday dropped, posts saved
+        profile = Profile.objects.get(feed=feed_url)
+        self.assertEqual(profile.nick, "ali")
+        self.assertIsNone(profile.birthday)
+        self.assertEqual(Post.objects.filter(profile=profile).count(), 1)

@@ -1,10 +1,37 @@
 import re
 import requests
+from datetime import datetime
 from typing import Dict, Any, Tuple
 from django.utils import timezone
 import logging
 
 logger = logging.getLogger(__name__)
+
+# (connect, read) timeouts in seconds for fetching remote feeds.
+# A short connect timeout drops unreachable hosts quickly (e.g. dead servers),
+# while the read timeout stays generous enough for slow-but-alive servers.
+FEED_FETCH_TIMEOUT = (3.05, 5)
+
+
+def _sanitize_birthday(value: str) -> str:
+    """Return the birthday only if it is a valid YYYY-MM-DD date, else "".
+
+    Some feeds use other date formats (e.g. "2003/06/17"). The Profile.birthday
+    DateField only accepts YYYY-MM-DD, so an invalid value would raise a
+    ValidationError and abort the whole feed scan. We drop the malformed value
+    instead of discarding an otherwise valid feed.
+    """
+    value = (value or "").strip()
+    if not value:
+        return ""
+    try:
+        datetime.strptime(value, "%Y-%m-%d")
+    except ValueError:
+        logger.warning(
+            f"Ignoring invalid birthday value (expected YYYY-MM-DD): {value!r}"
+        )
+        return ""
+    return value
 
 
 def _update_feed_last_successful_fetch(url: str):
@@ -238,7 +265,7 @@ def parse_org_social(url: str) -> Dict[str, Any]:
         Dictionary containing parsed metadata and posts
     """
     try:
-        response = requests.get(url, timeout=5)
+        response = requests.get(url, timeout=FEED_FETCH_TIMEOUT)
         response.raise_for_status()
         # Decode content as UTF-8 explicitly to avoid encoding issues
         # when the server doesn't specify charset in Content-Type header
@@ -309,7 +336,7 @@ def parse_org_social(url: str) -> Dict[str, Any]:
 
     birthday_match = re.search(r"^\s*\#\+BIRTHDAY:\s*(.+)$", content, re.MULTILINE)
     result["metadata"]["birthday"] = (
-        birthday_match.group(1).strip() if birthday_match else ""
+        _sanitize_birthday(birthday_match.group(1)) if birthday_match else ""
     )
 
     language_match = re.search(r"^\s*\#\+LANGUAGE:\s*(.+)$", content, re.MULTILINE)
@@ -474,7 +501,7 @@ def parse_org_social_content(content: str) -> Dict[str, Any]:
 
     birthday_match = re.search(r"^\s*\#\+BIRTHDAY:\s*(.+)$", content, re.MULTILINE)
     result["metadata"]["birthday"] = (
-        birthday_match.group(1).strip() if birthday_match else ""
+        _sanitize_birthday(birthday_match.group(1)) if birthday_match else ""
     )
 
     language_match = re.search(r"^\s*\#\+LANGUAGE:\s*(.+)$", content, re.MULTILINE)
@@ -594,7 +621,7 @@ def validate_org_social_feed(url: str) -> Tuple[bool, str]:
     """
     try:
         # Check if URL responds with 200
-        response = requests.get(url, timeout=5)
+        response = requests.get(url, timeout=FEED_FETCH_TIMEOUT)
         if response.status_code != 200:
             return False, f"URL returned status code {response.status_code}"
 

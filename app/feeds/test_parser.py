@@ -640,7 +640,11 @@ Great work!
 
         # Then: Verify we're using response.content, not response.text
         # This is critical to avoid double-encoding
-        mock_get.assert_called_once_with("https://example.com/social.org", timeout=5)
+        from app.feeds.parser import FEED_FETCH_TIMEOUT
+
+        mock_get.assert_called_once_with(
+            "https://example.com/social.org", timeout=FEED_FETCH_TIMEOUT
+        )
 
     def test_parse_v16_metadata_fields(self):
         """Test parsing v1.6 metadata fields (LOCATION, BIRTHDAY, LANGUAGE, PINNED)."""
@@ -681,6 +685,31 @@ This is a regular post.
 
         # Then: Posts should be parsed correctly
         self.assertEqual(len(result["posts"]), 2)
+
+    def test_parse_invalid_birthday_is_dropped(self):
+        """An invalid birthday format must be dropped, not abort the feed."""
+        # Given: A feed with a birthday that is not in YYYY-MM-DD format
+        content = """#+TITLE: Test User Profile
+#+NICK: test_user
+#+BIRTHDAY: 2003/06/17
+
+* Posts
+** 2025-01-15T10:00:00+0100
+:PROPERTIES:
+:END:
+
+A post.
+"""
+
+        # When: We parse the content
+        from app.feeds.parser import parse_org_social_content
+
+        result = parse_org_social_content(content)
+
+        # Then: The malformed birthday is dropped but the feed is still parsed
+        self.assertEqual(result["metadata"]["birthday"], "")
+        self.assertEqual(result["metadata"]["nick"], "test_user")
+        self.assertEqual(len(result["posts"]), 1)
 
     def test_parse_post_id_in_header(self):
         """Test parsing post ID from header (v1.6 feature)."""
