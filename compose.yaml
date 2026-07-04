@@ -26,10 +26,11 @@ services:
       - .:/app
     command: ./entrypoint.sh
     healthcheck:
-      test: ["CMD", "python", "manage.py", "check"]
-      interval: 30s
+      test: ["CMD", "python3", "-c", "import http.client; c=http.client.HTTPConnection('localhost',8000,timeout=5); c.request('GET','/'); exit(0 if c.getresponse().status<400 else 1)"]
+      interval: 2m
       timeout: 10s
       retries: 3
+      start_period: 40s
 
   huey:
     build: .
