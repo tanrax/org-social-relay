@@ -96,6 +96,7 @@ def root_view(request):
                     "method": "GET",
                     "description": "RSS feed of latest posts (supports ?tag={tag} and ?feed={feed_url} filters)",
                 },
+                "stats": {"href": "/stats/", "method": "GET"},
             },
         }
     )

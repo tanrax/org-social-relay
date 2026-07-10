@@ -1042,6 +1042,94 @@ curl -G "http://localhost:8080/polls/votes/" --data-urlencode "post=https://foo.
 }
 ```
 
+### Get statistics
+
+`/stats/` - Get aggregated statistics about the activity registered by the Relay. Data is grouped by year and month, plus a block of global counters. The month of each post is determined by its ID (RFC 3339 timestamp), not by when the Relay discovered it.
+
+```sh
+curl "http://localhost:8080/stats/"
+```
+
+```json
+{
+    "type": "Success",
+    "errors": [],
+    "data": {
+        "years": {
+            "2025": {
+                "11": {
+                    "active_accounts": 42,
+                    "total_posts": 512,
+                    "posts": 300,
+                    "replies": 120,
+                    "boosts": 40,
+                    "reactions": 35,
+                    "group_messages": 15,
+                    "polls": 7
+                },
+                "12": {
+                    "active_accounts": 51,
+                    "total_posts": 640,
+                    "posts": 380,
+                    "replies": 150,
+                    "boosts": 52,
+                    "reactions": 41,
+                    "group_messages": 22,
+                    "polls": 4
+                }
+            },
+            "2026": {
+                "01": {
+                    "active_accounts": 58,
+                    "total_posts": 701,
+                    "posts": 410,
+                    "replies": 170,
+                    "boosts": 60,
+                    "reactions": 48,
+                    "group_messages": 25,
+                    "polls": 9
+                }
+            }
+        },
+        "global": {
+            "registered_feeds": 128,
+            "total_accounts": 115,
+            "total_posts": 4210,
+            "total_follows": 340,
+            "active_groups": 6
+        }
+    },
+    "meta": {
+        "generated_at": "2026-01-15T10:30:00+00:00"
+    },
+    "_links": {
+        "self": {"href": "/stats/", "method": "GET"},
+        "feeds": {"href": "/feeds/", "method": "GET"}
+    }
+}
+```
+
+Counter definitions per month:
+
+- `active_accounts`: Number of distinct accounts that published at least one post (of any kind) during that month.
+- `total_posts`: Every post registered that month, regardless of its type.
+- `posts`: Original posts, meaning posts that are neither a reply (`:REPLY_TO:`) nor a boost (`:INCLUDE:`).
+- `replies`: Posts with the `:REPLY_TO:` property that contain text content. Reactions are excluded.
+- `boosts`: Posts with the `:INCLUDE:` property.
+- `reactions`: Replies with a `:MOOD:` property and no text content.
+- `group_messages`: Posts published in any group (`:GROUP:` property).
+- `polls`: Polls created that month (posts with `:POLL_END:`). Poll closings are not counted.
+
+Global counters:
+
+- `registered_feeds`: Total number of feeds currently registered in the Relay.
+- `total_accounts`: Total number of accounts (profiles) known by the Relay.
+- `total_posts`: Total number of posts registered, all time.
+- `total_follows`: Total number of follow relationships between accounts.
+- `active_groups`: Number of groups with at least one message.
+
+**Note:** Counters are not mutually exclusive: a reply inside a group counts in both `replies` and `group_messages`, and a poll also counts in `posts`. Only `posts`, `replies`, `reactions` and `boosts` are disjoint between them, and together they add up to `total_posts`. Months with no activity are omitted. Like the rest of the endpoints, the response is cached and refreshed after each feed scan.
+
 ## Groups Configuration
 
 Org Social Relay supports organizing posts into topic-based groups. Users can join groups to participate in focused discussions.

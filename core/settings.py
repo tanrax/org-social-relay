@@ -82,6 +82,7 @@ INSTALLED_APPS = [
     "app.interactions.apps.InteractionsConfig",
     "app.sse_notifications.apps.SseNotificationsConfig",
     "app.profile.apps.ProfileConfig",
+    "app.stats.apps.StatsConfig",
 ]
 
 MIDDLEWARE = [
