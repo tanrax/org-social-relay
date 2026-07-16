@@ -257,6 +257,51 @@ class Feed(models.Model):
         return self.url
 
 
+class OutgoingWebmention(models.Model):
+    """
+    Outbox of Webmentions sent by the relay on behalf of feed authors.
+
+    The (source, target) pair is unique, which guarantees each link found
+    in a post is notified at most once no matter how many times the feed
+    is rescanned.
+    """
+
+    STATUS_PENDING = "pending"
+    STATUS_SENT = "sent"
+    STATUS_FAILED = "failed"
+    STATUS_NO_ENDPOINT = "no_endpoint"
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "Pending"),
+        (STATUS_SENT, "Sent"),
+        (STATUS_FAILED, "Failed"),
+        (STATUS_NO_ENDPOINT, "No endpoint"),
+    ]
+
+    source = models.URLField(
+        max_length=500, help_text="Post URL (feed#post_id) containing the link"
+    )
+    target = models.URLField(max_length=500, help_text="External URL the post links to")
+    endpoint = models.URLField(
+        max_length=500, blank=True, help_text="Discovered Webmention endpoint"
+    )
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING
+    )
+    attempts = models.PositiveSmallIntegerField(default=0)
+    response_code = models.IntegerField(
+        null=True, blank=True, help_text="HTTP status of the last delivery attempt"
+    )
+    last_attempt_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ["source", "target"]
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"{self.source} -> {self.target} ({self.status})"
+
+
 class RelayMetadata(models.Model):
     """
     Global metadata for the relay - used for HTTP caching headers.

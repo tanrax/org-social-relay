@@ -47,6 +47,7 @@ graph TD
 - Perform searches (tags and full text).
 - Participate in groups.
 - See who boosted your posts.
+- Notify external sites linked from posts via [Webmention](https://www.w3.org/TR/webmention/) (sending only; receiving them is not possible since plain text feeds cannot advertise an endpoint).
 
 ## Concepts
 

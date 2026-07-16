@@ -484,6 +484,16 @@ def scan_feeds():
                 if post_created:
                     posts_created += 1
 
+                    # Queue outgoing webmentions for external links in the post
+                    from .webmentions import queue_webmentions_for_post
+
+                    try:
+                        queue_webmentions_for_post(profile, post_id, content)
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to queue webmentions for post {post_id}: {e}"
+                        )
+
                     # Publish notifications for NEW posts
                     from .notification_publisher import publish_notification
 
@@ -525,6 +535,7 @@ def scan_feeds():
                             )
                 else:
                     # Update existing post
+                    content_changed = post.content != content
                     post.content = content
                     post.language = properties.get("lang", "")
                     post.tags = properties.get("tags", "")
@@ -535,6 +546,18 @@ def scan_feeds():
                     post.include = properties.get("include", "")
                     post.save()
                     posts_updated += 1
+
+                    # Links added by an edit get their webmention queued too;
+                    # already-known (source, target) pairs are never re-sent
+                    if content_changed:
+                        from .webmentions import queue_webmentions_for_post
+
+                        try:
+                            queue_webmentions_for_post(profile, post_id, content)
+                        except Exception as e:
+                            logger.warning(
+                                f"Failed to queue webmentions for post {post_id}: {e}"
+                            )
 
                 # Handle poll_end if present
                 poll_end_str = properties.get("poll_end", "")
@@ -705,6 +728,128 @@ def scan_feeds():
     # Clear all endpoint caches
     cache.clear()
     logger.info("Cache cleared after feed scanning - next requests will get fresh data")
+
+
+WEBMENTION_MAX_ATTEMPTS = 5
+WEBMENTION_BATCH_SIZE = 50
+
+
+def _send_pending_webmentions_impl():
+    """
+    Implementation of the webmention delivery logic, separated from the
+    periodic task to allow for easier testing.
+
+    Returns:
+        dict: Counters of sent / no_endpoint / failed webmentions
+    """
+    from .models import OutgoingWebmention
+    from .webmentions import (
+        discover_webmention_endpoint,
+        is_safe_endpoint,
+        send_webmention,
+    )
+
+    now = timezone.now()
+    candidates = OutgoingWebmention.objects.filter(
+        status__in=[
+            OutgoingWebmention.STATUS_PENDING,
+            OutgoingWebmention.STATUS_FAILED,
+        ],
+        attempts__lt=WEBMENTION_MAX_ATTEMPTS,
+    ).order_by("created_at")[: WEBMENTION_BATCH_SIZE * 2]
+
+    counters = {"sent": 0, "no_endpoint": 0, "failed": 0}
+    processed = 0
+
+    for webmention in candidates:
+        if processed >= WEBMENTION_BATCH_SIZE:
+            break
+
+        # Exponential backoff between retries: 1h, 2h, 4h, 8h...
+        if webmention.last_attempt_at:
+            backoff = timedelta(hours=2 ** (webmention.attempts - 1))
+            if now < webmention.last_attempt_at + backoff:
+                continue
+
+        processed += 1
+        webmention.last_attempt_at = now
+        webmention.attempts += 1
+
+        try:
+            endpoint = webmention.endpoint or discover_webmention_endpoint(
+                webmention.target
+            )
+
+            if endpoint is None:
+                # Permanent: the target does not support webmentions
+                webmention.status = OutgoingWebmention.STATUS_NO_ENDPOINT
+                counters["no_endpoint"] += 1
+                webmention.save()
+                continue
+
+            if not is_safe_endpoint(endpoint):
+                logger.warning(
+                    f"Rejecting unsafe webmention endpoint {endpoint} "
+                    f"for target {webmention.target}"
+                )
+                webmention.status = OutgoingWebmention.STATUS_NO_ENDPOINT
+                counters["no_endpoint"] += 1
+                webmention.save()
+                continue
+
+            webmention.endpoint = endpoint
+            status_code = send_webmention(
+                endpoint, webmention.source, webmention.target
+            )
+            webmention.response_code = status_code
+
+            if 200 <= status_code < 300:
+                webmention.status = OutgoingWebmention.STATUS_SENT
+                counters["sent"] += 1
+                logger.info(
+                    f"Webmention sent: {webmention.source} -> {webmention.target} "
+                    f"({status_code})"
+                )
+            else:
+                webmention.status = OutgoingWebmention.STATUS_FAILED
+                counters["failed"] += 1
+                logger.warning(
+                    f"Webmention rejected by {endpoint} with HTTP {status_code} "
+                    f"({webmention.source} -> {webmention.target})"
+                )
+
+        except requests.RequestException as e:
+            webmention.status = OutgoingWebmention.STATUS_FAILED
+            counters["failed"] += 1
+            logger.warning(f"Webmention delivery error for {webmention.target}: {e}")
+
+        webmention.save()
+
+    if processed:
+        logger.info(
+            f"Webmention delivery completed. "
+            f"Sent: {counters['sent']}, "
+            f"No endpoint: {counters['no_endpoint']}, "
+            f"Failed: {counters['failed']}"
+        )
+    return counters
+
+
+@periodic_task(crontab(minute="*/5"))  # Run every 5 minutes
+def send_pending_webmentions():
+    """
+    Periodic task to deliver queued outgoing webmentions.
+
+    For each pending (or retriable failed) webmention this task discovers
+    the target's webmention endpoint and POSTs source/target to it, as
+    described in https://www.w3.org/TR/webmention/. Targets without an
+    endpoint are marked permanently so they are never fetched again.
+    """
+    import django
+
+    django.setup()
+
+    return _send_pending_webmentions_impl()
 
 
 def _cleanup_stale_feeds_impl():
