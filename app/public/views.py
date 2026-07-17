@@ -97,6 +97,19 @@ def root_view(request):
                     "description": "RSS feed of latest posts (supports ?tag={tag} and ?feed={feed_url} filters)",
                 },
                 "stats": {"href": "/stats/", "method": "GET"},
+                "bridge": {"href": "/bridge/", "method": "GET"},
+                "bridge-activitypub": {
+                    "href": "/bridge/activitypub/@{user}@{instance}/",
+                    "method": "GET",
+                    "templated": True,
+                    "description": "ActivityPub account as a virtual social.org feed",
+                },
+                "bridge-rss": {
+                    "href": "/bridge/rss/?url={feed_url}",
+                    "method": "GET",
+                    "templated": True,
+                    "description": "RSS/Atom feed as a virtual social.org feed",
+                },
             },
         }
     )

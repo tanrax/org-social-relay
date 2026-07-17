@@ -48,6 +48,7 @@ graph TD
 - Participate in groups.
 - See who boosted your posts.
 - Notify external sites linked from posts via [Webmention](https://www.w3.org/TR/webmention/) (sending only; receiving them is not possible since plain text feeds cannot advertise an endpoint).
+- Follow Mastodon/ActivityPub accounts and RSS/Atom feeds from any Org Social client through [bridges](#bridges-follow-activitypub-accounts-and-rss-feeds) (virtual social.org feeds).
 
 ## Concepts
 
@@ -221,7 +222,10 @@ curl http://localhost:8080/
         "polls": {"href": "/polls/", "method": "GET"},
         "poll-votes": {"href": "/polls/votes/?post={post_url}", "method": "GET", "templated": true},
         "profile": {"href": "/profile/?feed={feed_url}", "method": "GET", "templated": true},
-        "rss": {"href": "/rss.xml", "method": "GET", "description": "RSS feed of latest posts (supports ?tag={tag} and ?feed={feed_url} filters)"}
+        "rss": {"href": "/rss.xml", "method": "GET", "description": "RSS feed of latest posts (supports ?tag={tag} and ?feed={feed_url} filters)"},
+        "bridge": {"href": "/bridge/", "method": "GET"},
+        "bridge-activitypub": {"href": "/bridge/activitypub/@{user}@{instance}/", "method": "GET", "templated": true},
+        "bridge-rss": {"href": "/bridge/rss/?url={feed_url}", "method": "GET", "templated": true}
     }
 }
 ```
@@ -1131,6 +1135,95 @@ Global counters:
 
 **Note:** Counters are not mutually exclusive: a reply inside a group counts in both `replies` and `group_messages`, and a poll also counts in `posts`. Only `posts`, `replies`, `reactions` and `boosts` are disjoint between them, and together they add up to `total_posts`. Months with no activity are omitted. Like the rest of the endpoints, the response is cached and refreshed after each feed scan.
 
+### Bridges (follow ActivityPub accounts and RSS feeds)
+
+Bridges expose external accounts as **virtual social.org feeds** served by the relay. Any Org Social client can follow them with a plain `#+FOLLOW:` line, no client changes needed.
+
+Registration is implicit: the first request of an unknown account fetches it from the origin and stores it. Active bridges are refreshed every 15 minutes; bridges nobody has requested for 90 days are removed automatically (and re-created on the next request).
+
+#### ActivityPub bridge
+
+`/bridge/activitypub/@{user}@{instance}/` - A Mastodon (or any ActivityPub) account as a virtual social.org feed (plain text).
+
+```sh
+curl http://localhost:8080/bridge/activitypub/@Mastodon@mastodon.social/
+```
+
+```org
+#+TITLE: Mastodon
+#+NICK: Mastodon
+#+DESCRIPTION: Our mission is to connect the world...
+#+AVATAR: https://files.mastodon.social/accounts/avatars/.../avatar.png
+#+LINK: https://mastodon.social/@Mastodon
+
+* Posts
+** 2026-03-27T16:27:02+00:00
+:PROPERTIES:
+:LANG: en
+:TAGS: fossback mastodon opensourcedesign ux
+:END:
+
+Following on from yesterday's blog post...
+```
+
+To follow the account, users add to their `social.org`:
+
+```org
+#+FOLLOW: https://relay.org-social.org/bridge/activitypub/@Mastodon@mastodon.social/
+```
+
+Notes:
+
+- Handles are case-insensitive; non-canonical spellings redirect (301) to the lowercase canonical URL.
+- Only public top-level posts are bridged (no replies, no boosts), like Mastodon's public RSS.
+- Content warnings become a `CW:` first line; media attachments become Org links; hashtags become `:TAGS:`.
+- Instances running in *authorized fetch* mode (signed requests required) cannot be bridged.
+
+`/bridge/activitypub/` (without handle) lists the accounts already bridged by this relay.
+
+#### RSS/Atom bridge
+
+`/bridge/rss/?url={feed_url}` - An RSS or Atom feed as a virtual social.org feed (plain text). The `url` parameter must be URL-encoded.
+
+```sh
+curl -G http://localhost:8080/bridge/rss/ --data-urlencode "url=https://xkcd.com/rss.xml"
+```
+
+```org
+#+TITLE: xkcd.com
+#+NICK: xkcd_com
+#+DESCRIPTION: xkcd.com: A webcomic of romance and math humor.
+#+LINK: https://xkcd.com/
+
+* Posts
+** 2026-07-08T04:00:00+00:00
+:PROPERTIES:
+:END:
+
+*** Airport Meeting
+
+[[https://imgs.xkcd.com/comics/airport_meeting.png][Although it was a setback for physics...]]
+
+[[https://xkcd.com/3269/]]
+```
+
+To follow the feed:
+
+```org
+#+FOLLOW: https://relay.org-social.org/bridge/rss/?url=https%3A%2F%2Fxkcd.com%2Frss.xml
+```
+
+Notes:
+
+- Entry titles become `***` sub-headings inside the post, followed by the converted content and a link to the original article.
+- Entries without a publication date are skipped; entries sharing the same date get IDs shifted forward one second so none is lost.
+
+`/bridge/rss/` (without `url`) lists the feeds already bridged by this relay.
+
+#### Bridged feeds and the rest of the API
+
+Bridged accounts are stored as regular profiles, so the existing endpoints (`/profile/`, `/search/`, `/rss.xml?feed=...`, ...) work with the bridge URL as the `feed` parameter. Bridged posts never trigger Webmentions nor notifications: the relay only mirrors external content.
+
 ## Groups Configuration
 
 Org Social Relay supports organizing posts into topic-based groups. Users can join groups to participate in focused discussions.
@@ -1218,6 +1311,14 @@ Every day at midnight, Relay analyzes the feeds of all registered users to disco
 #### Cleanup stale feeds
 
 Every 3 days at 2 AM, Relay automatically removes feeds that haven't been successfully fetched (HTTP 200) in the last 3 days. This keeps the relay efficient by removing inactive or dead feeds.
+
+#### Refresh bridges
+
+Every 15 minutes, Relay refetches the bridged ActivityPub accounts and RSS feeds that have been requested in the last 7 days. Dormant bridges are refreshed inline on their next request instead.
+
+#### Cleanup stale bridges
+
+Every 3 days at 3 AM, Relay removes bridged accounts that nobody has requested in the last 90 days, together with their stored profile and posts. They are re-created automatically if someone requests them again.
 
 ## Contributing
 
