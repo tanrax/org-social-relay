@@ -26,6 +26,7 @@ def discover_feeds_from_relay_nodes():
     django.setup()
 
     from django.conf import settings
+    from app.bridge.models import is_bridge_feed_url
     from .models import Feed
     from .parser import validate_org_social_feed
 
@@ -91,6 +92,10 @@ def discover_feeds_from_relay_nodes():
                         if isinstance(feed_url, str) and feed_url.strip():
                             feed_url = feed_url.strip()
 
+                            # Bridge virtual feeds are not real accounts
+                            if is_bridge_feed_url(feed_url):
+                                continue
+
                             # Check if we already have this feed
                             if Feed.objects.filter(url=feed_url).exists():
                                 continue
@@ -151,6 +156,7 @@ def discover_new_feeds_from_follows():
 
     django.setup()
 
+    from app.bridge.models import is_bridge_feed_url
     from .models import Feed, Profile, Follow
     from .parser import parse_org_social, validate_org_social_feed
 
@@ -223,7 +229,10 @@ def discover_new_feeds_from_follows():
                 # Check if feed already exists
                 existing_feed = Feed.objects.filter(url=follow_url).first()
 
-                if not existing_feed:
+                # Bridge virtual feeds help users connect to external
+                # content; the follow relationship is kept below, but the
+                # bridge is never registered as a real feed
+                if not existing_feed and not is_bridge_feed_url(follow_url):
                     # Validate the feed before adding it
                     logger.info(f"Validating discovered follow feed: {follow_url}")
                     is_valid, error_message = validate_org_social_feed(follow_url)

@@ -339,3 +339,43 @@ class FeedsViewTest(TestCase):
         # Then: Should still have caching headers
         self.assertIn("ETag", response)
         self.assertIn("Last-Modified", response)
+
+    def test_get_feeds_excludes_bridge_feeds(self):
+        """Test GET /feeds never lists bridge virtual feeds."""
+        # Given: A real feed and two bridge virtual feeds in the database
+        Feed.objects.create(url="https://example.com/social.org")
+        Feed.objects.create(
+            url="https://relay.org-social.org/bridge/rss/"
+            "?url=https%3A%2F%2Frss.arxiv.org%2Frss%2Fquant-ph"
+        )
+        Feed.objects.create(
+            url="https://relay.org-social.org/bridge/activitypub/@user@instance.tld/"
+        )
+
+        # When: We request the feeds list
+        response = self.client.get(self.feeds_url)
+
+        # Then: Only the real feed is listed
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["data"], ["https://example.com/social.org"])
+
+    def test_post_bridge_feed_is_rejected(self):
+        """Test POST /feeds rejects bridge virtual feeds."""
+        # Given: The URL of a bridge virtual feed
+        bridge_url = (
+            "https://relay.org-social.org/bridge/rss/"
+            "?url=https%3A%2F%2Fxkcd.com%2Frss.xml"
+        )
+
+        # When: We try to register it
+        response = self.client.post(
+            self.feeds_url, {"feed": bridge_url}, format="json"
+        )
+
+        # Then: The request is rejected and no feed is created
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["type"], "Error")
+        self.assertIn(
+            "Bridge virtual feeds cannot be registered", response.data["errors"]
+        )
+        self.assertFalse(Feed.objects.filter(url=bridge_url).exists())

@@ -7,6 +7,7 @@ from django.db.models.functions import TruncMonth
 from django.utils import timezone
 import logging
 
+from app.bridge.models import bridge_urls_q
 from app.feeds.models import Feed, Follow, Post, Profile
 
 logger = logging.getLogger(__name__)
@@ -56,8 +57,10 @@ class StatsView(APIView):
         # a mood and empty or whitespace-only content
         is_reaction = is_reply & ~Q(mood="") & Q(content__regex=r"^\s*$")
 
+        # Bridged posts belong to external authors, not to real accounts
         monthly = (
-            Post.objects.annotate(month=TruncMonth("created_at"))
+            Post.objects.exclude(bridge_urls_q("profile__feed"))
+            .annotate(month=TruncMonth("created_at"))
             .values("month")
             .annotate(
                 active_accounts=Count("profile", distinct=True),
@@ -94,13 +97,20 @@ class StatsView(APIView):
         return years
 
     def _get_global_stats(self):
-        """Global counters, independent of the monthly breakdown"""
+        """Global counters, independent of the monthly breakdown.
+
+        Bridge virtual feeds (and their profiles, posts and follows) are
+        a connection helper, not real accounts, so they never count.
+        """
+        real_posts = Post.objects.exclude(bridge_urls_q("profile__feed"))
         return {
-            "registered_feeds": Feed.objects.count(),
-            "total_accounts": Profile.objects.count(),
-            "total_posts": Post.objects.count(),
-            "total_follows": Follow.objects.count(),
-            "active_groups": Post.objects.exclude(group="")
+            "registered_feeds": Feed.objects.exclude(bridge_urls_q("url")).count(),
+            "total_accounts": Profile.objects.exclude(bridge_urls_q("feed")).count(),
+            "total_posts": real_posts.count(),
+            "total_follows": Follow.objects.exclude(
+                bridge_urls_q("followed__feed")
+            ).count(),
+            "active_groups": real_posts.exclude(group="")
             .values("group")
             .distinct()
             .count(),

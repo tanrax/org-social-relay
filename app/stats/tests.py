@@ -249,3 +249,47 @@ class StatsViewTest(TestCase):
         cache.clear()
         fresh = self.client.get(self.stats_url)
         self.assertEqual(fresh.data["data"]["global"]["total_posts"], 2)
+
+    def test_bridge_feeds_do_not_count_in_stats(self):
+        """Test bridge profiles, posts, feeds and follows are excluded."""
+        # Given: A real feed with posts and a bridge with feed, posts and follow
+        Feed.objects.create(url="https://alice.org/social.org")
+        self._create_post(self.profile1, "2025-08-01T10:00:00+00:00", content="Hi")
+
+        bridge_profile = Profile.objects.create(
+            feed=(
+                "https://relay.org-social.org/bridge/rss/"
+                "?url=https%3A%2F%2Frss.arxiv.org%2Frss%2Fquant-ph"
+            ),
+            title="quant-ph updates on arXiv.org",
+            nick="quant-ph_updates_on_arXiv_org",
+        )
+        Feed.objects.create(url=bridge_profile.feed)
+        Follow.objects.create(follower=self.profile1, followed=bridge_profile)
+        for second in range(3):
+            self._create_post(
+                bridge_profile,
+                f"2025-08-02T04:00:0{second}+00:00",
+                content="Bridged paper",
+                group="physics",
+            )
+
+        # When: We request the stats
+        response = self.client.get(self.stats_url)
+
+        # Then: Global counters only reflect the real feed and its post
+        self.assertEqual(
+            response.data["data"]["global"],
+            {
+                "registered_feeds": 1,
+                "total_accounts": 2,
+                "total_posts": 1,
+                "total_follows": 0,
+                "active_groups": 0,
+            },
+        )
+
+        # Then: The monthly breakdown ignores the bridged posts
+        month = response.data["data"]["years"]["2025"]["08"]
+        self.assertEqual(month["total_posts"], 1)
+        self.assertEqual(month["active_accounts"], 1)

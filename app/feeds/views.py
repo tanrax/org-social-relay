@@ -4,6 +4,8 @@ from rest_framework import status
 from django.core.cache import cache
 import logging
 
+from app.bridge.models import bridge_urls_q, is_bridge_feed_url
+
 from .models import Feed
 from .parser import validate_org_social_feed
 
@@ -32,8 +34,11 @@ class FeedsView(APIView):
                 status=status.HTTP_200_OK,
             )
 
-        # If not in cache, query database
-        feeds = list(Feed.objects.all().values_list("url", flat=True))
+        # If not in cache, query database. Bridge virtual feeds are a
+        # connection helper, not real accounts, so they are never listed.
+        feeds = list(
+            Feed.objects.exclude(bridge_urls_q("url")).values_list("url", flat=True)
+        )
 
         # Cache permanently (will be cleared by scan_feeds task)
         cache.set(cache_key, feeds, None)
@@ -61,6 +66,18 @@ class FeedsView(APIView):
             )
 
         feed_url = feed_url.strip()
+
+        # Bridge virtual feeds serve valid Org Social content but are not
+        # real accounts; they cannot be registered
+        if is_bridge_feed_url(feed_url):
+            return Response(
+                {
+                    "type": "Error",
+                    "errors": ["Bridge virtual feeds cannot be registered"],
+                    "data": None,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Check if feed already exists
         existing_feed = Feed.objects.filter(url=feed_url).first()

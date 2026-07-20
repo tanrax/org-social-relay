@@ -1,7 +1,33 @@
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 from django.conf import settings
 from django.db import models
+
+# Path fragments that identify a bridge virtual feed, on this relay or any other
+BRIDGE_PATH_MARKERS = ("/bridge/activitypub/", "/bridge/rss/")
+
+
+def is_bridge_feed_url(url):
+    """
+    True when the URL points to a bridge virtual feed.
+
+    Bridges help users connect to external content but are not real
+    Org Social accounts, so they must stay out of the feed registry
+    and the statistics.
+    """
+    path = urlparse(url).path
+    return any(marker in path for marker in BRIDGE_PATH_MARKERS)
+
+
+def bridge_urls_q(field):
+    """
+    Q object matching rows whose `field` URL belongs to a bridge virtual
+    feed. Use with exclude() to leave bridges out of listings and stats.
+    """
+    q = models.Q()
+    for marker in BRIDGE_PATH_MARKERS:
+        q |= models.Q(**{f"{field}__contains": marker})
+    return q
 
 
 def bridge_base_url():

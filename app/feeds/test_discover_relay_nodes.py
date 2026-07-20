@@ -201,3 +201,31 @@ class DiscoverRelayNodesTest(TestCase):
 
         # Then: The function should complete without calling own domain
         # (if it called own domain, the test would fail in mock_requests_get)
+
+    def test_skips_bridge_feeds_from_relay_nodes(self):
+        """Test that bridge virtual feeds listed by other relays are skipped."""
+        # Given: A relay node listing only bridge virtual feeds
+        mock_relay_response = Mock()
+        mock_relay_response.status_code = 200
+        mock_relay_response.json.return_value = {
+            "type": "Success",
+            "data": [
+                "https://other-relay.org/bridge/rss/"
+                "?url=https%3A%2F%2Frss.arxiv.org%2Frss%2Fquant-ph",
+                "https://other-relay.org/bridge/activitypub/@user@instance.tld/",
+            ],
+        }
+        mock_relay_response.raise_for_status = Mock()
+
+        def mock_requests_get(url, timeout=None):
+            if "/feeds" in url:
+                return mock_relay_response
+            # Bridge feeds must not even be validated
+            self.fail(f"Should not validate bridge feed: {url}")
+
+        # When: We run the discovery task
+        with patch("requests.get", side_effect=mock_requests_get):
+            discover_feeds_from_relay_nodes()
+
+        # Then: No bridge feed is registered
+        self.assertEqual(Feed.objects.count(), 0)
